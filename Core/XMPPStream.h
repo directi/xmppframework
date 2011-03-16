@@ -749,3 +749,21 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 - (void)xmppStream:(XMPPStream *)sender willUnregisterModule:(id)module;
 
 @end
+
+@protocol XMPPTransportProtocol
+
+- (void)setDelegate:(id)delegate;
+- (BOOL)open;
+- (BOOL)close;
+- (BOOL)sendStanza:(NSXMLElement *)stanza;
+
+@optional
+- (BOOL)openSecure;
+
+@end
+
+@protocol XMPPTransportDelegate
+
+- (void)transport:(id <XMPPTransportProtocol>)transport didReceiveStanza:(NSXMLElement *)stanza;
+
+@end
