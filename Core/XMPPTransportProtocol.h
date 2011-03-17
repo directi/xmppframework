@@ -11,18 +11,21 @@
 @protocol XMPPTransportProtocol
 
 - (void)setDelegate:(id)delegate;
-- (BOOL)open;
-- (BOOL)close;
+- (BOOL)connect:(NSError *)errPtr;
+- (BOOL)disconnect;
 - (BOOL)sendStanza:(NSXMLElement *)stanza;
 
 @optional
-- (BOOL)openSecure;
-
+- (BOOL)secure;
 @end
 
 
 @protocol XMPPTransportDelegate
-
+- (void)transportDidConnect:(id <XMPPTransportProtocol>)transport;
+- (void)transportDidDisconnect:(id <XMPPTransportProtocol>)transport;
 - (void)transport:(id <XMPPTransportProtocol>)transport didReceiveStanza:(NSXMLElement *)stanza;
+- (void)transport:(id <XMPPTransportProtocol>)transport didReceiveError:(id)error;
 
+@optional
+- (void)transportDidSecure:(id <XMPPTransportProtocol>)transport;
 @end
