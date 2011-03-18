@@ -14,8 +14,9 @@
 
 - (void)addDelegate:(id)delegate;
 - (void)removeDelegate:(id)delegate;
-- (BOOL)connect:(NSError *)errPtr;
+- (BOOL)connect:(NSError **)errPtr;
 - (BOOL)disconnect;
+- (void)restartStream;
 - (BOOL)sendStanza:(NSXMLElement *)stanza;
 - (BOOL)sendStanzaWithString:(NSString *)string;
 @optional
@@ -27,6 +28,8 @@
 @protocol XMPPTransportDelegate
 
 @optional
+- (void)transportWillConnect:(id <XMPPTransportProtocol>)transport;
+- (void)transportDidStartNegotiation:(id <XMPPTransportProtocol>)transport;
 - (void)transportDidConnect:(id <XMPPTransportProtocol>)transport;
 - (void)transportDidDisconnect:(id <XMPPTransportProtocol>)transport;
 - (void)transport:(id <XMPPTransportProtocol>)transport didReceiveStanza:(NSXMLElement *)stanza;

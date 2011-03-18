@@ -299,7 +299,7 @@ enum XMPPStreamFlags
 
 - (BOOL)connect:(NSError **)errPtr
 {
-	if (state > STATE_RESOLVING_SRV)
+	if (state > STATE_DISCONNECTED)
 	{
 		if (errPtr)
 		{
@@ -310,18 +310,6 @@ enum XMPPStreamFlags
 		}
 		return NO;
 	}
-	
-	if ([self isP2P])
-    {
-		if (errPtr)
-		{
-			NSString *errMsg = @"P2P streams must use either connectTo:withAddress: or connectP2PWithSocket:.";
-			NSDictionary *info = [NSDictionary dictionaryWithObject:errMsg forKey:NSLocalizedDescriptionKey];
-			
-			*errPtr = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidType userInfo:info];
-		}
-		return NO;
-    }
 	
 	if (myJID == nil)
 	{
@@ -352,23 +340,8 @@ enum XMPPStreamFlags
     // Notify delegates
     [multicastDelegate xmppStreamWillConnect:self];
 
-	if ([hostName length] == 0)
-	{
-		// Resolve the hostName via myJID SRV resolution
-		
-		state = STATE_RESOLVING_SRV;
-		
-		[srvResolver release];
-		srvResolver = [[RFSRVResolver resolveWithStream:self delegate:self] retain];
-		
-		return YES;
-	}
-	else
-	{
-		// Open TCP connection to the configured hostName.
-		
-		return [self connectToHost:hostName onPort:hostPort error:errPtr];
-	}
+    // Open TCP connection to the configured hostName.
+    return [transport connect:errPtr];
 }
 
 - (BOOL)oldSchoolSecureConnect:(NSError **)errPtr
@@ -1904,53 +1877,24 @@ enum XMPPStreamFlags
 	[self tryNextSrvResult];
 }
 
+//////////////////////////////////////
+#pragma mark XMPPTransport Delegate
+//////////////////////////////////////
+
+- (void)transportDidConnect:(id<XMPPTransportProtocol>)transport
+{
+    [self sendOpeningNegotiation];
+    [multicastDelegate xmppStreamDidStartNegotiation:self];
+}
+
+- (void)transportDidSecure:(id<XMPPTransportProtocol>)transport
+{
+    [multicastDelegate xmppStreamDidSecure:self];
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark AsyncSocket Delegate
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-- (BOOL)onSocketWillConnect:(AsyncSocket *)socket {
-    [multicastDelegate xmppStream:self socketWillConnect:socket];
-
-	return YES;
-}
-
-/**
- * Called when a socket connects and is ready for reading and writing. "host" will be an IP address, not a DNS name.
-**/
-- (void)onSocket:(AsyncSocket *)sock didConnectToHost:(NSString *)host port:(UInt16)port
-{
-	// The TCP connection is now established
-	
-	[srvResolver release];
-	srvResolver = nil;
-	
-	[srvResults release];
-	srvResults = nil;
-	
-	// Are we using old-style SSL? (Not the upgrade to TLS technique specified in the XMPP RFC)
-	if ([self isSecure])
-	{
-		// The connection must be secured immediately (just like with HTTPS)
-		[self startTLS];
-		
-		// Note: We don't need to wait for asyncSocket to complete TLS negotiation.
-		// We can just continue reading/writing to the socket, and it will handle queueing everything for us!
-	}
-	
-	// Initialize the XML stream
-	[self sendOpeningNegotiation];
-	
-	// Inform delegate that the TCP connection is open, and the stream handshake has begun
-	[multicastDelegate xmppStreamDidStartNegotiation:self];
-	
-	// And start reading in the server's XML stream
-	[asyncSocket readDataWithTimeout:TIMEOUT_READ_START tag:TAG_READ_START];
-}
-
-- (void)onSocketDidSecure:(AsyncSocket *)sock
-{
-	[multicastDelegate xmppStreamDidSecure:self];
-}
 
 /**
  * Called when a socket has completed reading the requested data. Not called if there is an error.
