@@ -70,7 +70,16 @@
 
 - (BOOL)sendStanza:(NSXMLElement *)stanza
 {
-    return YES;
+	NSString *outgoingStr = [stanza compactXMLString];
+	NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
+
+	DDLogSend(@"SEND: %@", outgoingStr);
+	numberOfBytesSent += [outgoingData length];
+
+	[asyncSocket writeData:outgoingData
+	           withTimeout:TIMEOUT_WRITE
+	                   tag:TAG_WRITE_STREAM];
+    return YES; // FIXME: does this need to be a BOOL?
 }
 
 - (BOOL)sendStanzaWithString:(NSString *)string
@@ -193,7 +202,7 @@
 	if (DEBUG_RECV_PRE)
 	{
 		NSString *dataAsStr = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-		DDLogRecvPre(@"RECV: %@", dataAsStr);
+		DDLogRecvPre(@"RECV RAW: %@", dataAsStr);
 		[dataAsStr release];
 	}
 
@@ -204,6 +213,20 @@
 //////////////////////////////////////
 #pragma mark XMPPParser Delegate
 //////////////////////////////////////
+
+- (void)xmppParser:(XMPPParser *)sender didParseDataOfLength:(NSUInteger)length
+{
+	// The chunk we read has now been fully parsed.
+	// Continue reading for XML elements.
+	if(state == XMPP_SOCKET_OPENING)
+	{
+		[asyncSocket readDataWithTimeout:TIMEOUT_READ_START tag:TAG_READ_START];
+	}
+	else
+	{
+		[asyncSocket readDataWithTimeout:TIMEOUT_READ_STREAM tag:TAG_READ_STREAM];
+	}
+}
 
 /**
  * Called when the xmpp parser has read in the entire root element.
@@ -222,7 +245,10 @@
     [multicastDelegate transportDidConnect:self];
 }
 
-
-
+- (void)xmppParser:(XMPPParser *)sender didReadElement:(NSXMLElement *)element
+{
+    DDLogRecvPost(@"RECV: %@", [element compactXMLString]);
+    [multicastDelegate transport:self didReceiveStanza:element];
+}
 
 @end

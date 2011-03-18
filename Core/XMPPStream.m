@@ -68,7 +68,6 @@ enum XMPPStreamFlags
 
 - (void)sendOpeningNegotiation;
 - (void)setupKeepAliveTimer;
-
 @end
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -138,6 +137,15 @@ enum XMPPStreamFlags
 		flags = 0;
 	}
 	return self;
+}
+
+- (NSXMLElement *)newRootElement
+{
+    NSString *streamNamespaceURI = @"http://etherx.jabber.org/streams";
+    NSXMLElement *element = [[[NSXMLElement alloc] initWithName:@"stream" URI:streamNamespaceURI] retain];
+    [element addNamespaceWithPrefix:@"stream" stringValue:streamNamespaceURI];
+    [element addNamespaceWithPrefix:@"" stringValue:@"jabber:client"];
+    return element;
 }
 
 /**
@@ -1885,9 +1893,44 @@ enum XMPPStreamFlags
 #pragma mark XMPPTransport Delegate
 //////////////////////////////////////
 
-- (void)transportDidConnect:(id<XMPPTransportProtocol>)transport
+- (void)transportDidConnect:(id<XMPPTransportProtocol>)sender
 {
-    [multicastDelegate xmppStreamDidStartNegotiation:self];
+	
+	// At this point we've sent our XML stream header, and we've received the response XML stream header.
+	// We save the root element of our stream for future reference.
+	// Digest Access authentication requires us to know the ID attribute from the <stream:stream/> element.
+	
+	[rootElement release];
+	rootElement = [self newRootElement];
+	
+    // Check for RFC compliance
+    if([transport serverXmppStreamVersionNumber] >= 1.0)
+    {
+        // Update state - we're now onto stream negotiations
+        state = STATE_NEGOTIATING;
+        
+        // Note: We're waiting for the <stream:features> now
+    }
+    else
+    {
+        // The server isn't RFC comliant, and won't be sending any stream features.
+        
+        // We would still like to know what authentication features it supports though,
+        // so we'll use the jabber:iq:auth namespace, which was used prior to the RFC spec.
+        
+        // Update state - we're onto psuedo negotiation
+        state = STATE_NEGOTIATING;
+        
+        NSXMLElement *query = [NSXMLElement elementWithName:@"query" xmlns:@"jabber:iq:auth"];
+        
+        NSXMLElement *iq = [NSXMLElement elementWithName:@"iq"];
+        [iq addAttributeWithName:@"type" stringValue:@"get"];
+        [iq addChild:query];
+        
+        [transport sendStanza:iq];
+        
+        // Now wait for the response IQ
+    }
 }
 
 - (void)transportDidSecure:(id<XMPPTransportProtocol>)transport
@@ -1992,105 +2035,6 @@ enum XMPPStreamFlags
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark XMPPParser Delegate
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/**
- * Called when the xmpp parser has read in the entire root element.
-**/
-- (void)xmppParser:(XMPPParser *)sender didReadRoot:(NSXMLElement *)root
-{
-	DDLogRecvPost(@"RECV: %@", [root compactXMLString]);
-	
-	// At this point we've sent our XML stream header, and we've received the response XML stream header.
-	// We save the root element of our stream for future reference.
-	// Digest Access authentication requires us to know the ID attribute from the <stream:stream/> element.
-	
-	[rootElement release];
-	rootElement = [root retain];
-	
-    if([self isP2P])
-    {
-        // XEP-0174 specifies that <stream:features/> SHOULD be sent by the receiver.
-        // In other words, if we're the recipient we will now send our features.
-        // But if we're the initiator, we can't depend on receiving their features.
-        
-        // Either way, we're connected at this point.
-        state = STATE_CONNECTED;
-        
-        if([self isP2PRecipient])
-        {
-			// Extract the remoteJID:
-			// 
-			// <stream:stream ... from='<remoteJID>' to='<myJID>'>
-			
-			NSString *from = [[rootElement attributeForName:@"from"] stringValue];
-			remoteJID = [[XMPPJID jidWithString:from] retain];
-			
-			// Send our stream features.
-			// To do so we need to ask the delegate to fill it out for us.
-			
-            NSXMLElement *streamFeatures = [NSXMLElement elementWithName:@"stream:features"];
-            
-			[multicastDelegate xmppStream:self willSendP2PFeatures:streamFeatures];
-			
-			NSString *outgoingStr = [streamFeatures compactXMLString];
-			NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-			
-            DDLogSend(@"SEND: %@", outgoingStr);
-			numberOfBytesSent += [outgoingData length];
-			
-            [asyncSocket writeData:outgoingData
-                       withTimeout:TIMEOUT_WRITE
-                               tag:TAG_WRITE_STREAM];
-            
-        }
-        
-        // Make sure the delegate didn't disconnect us in the xmppStream:willSendP2PFeatures: method.
-        
-        if([self isConnected])
-        {
-			[multicastDelegate xmppStreamDidConnect:self];
-        }
-    }
-    else
-    {
-        // Check for RFC compliance
-        if([self serverXmppStreamVersionNumber] >= 1.0)
-        {
-            // Update state - we're now onto stream negotiations
-            state = STATE_NEGOTIATING;
-            
-            // Note: We're waiting for the <stream:features> now
-        }
-        else
-        {
-            // The server isn't RFC comliant, and won't be sending any stream features.
-            
-            // We would still like to know what authentication features it supports though,
-            // so we'll use the jabber:iq:auth namespace, which was used prior to the RFC spec.
-            
-            // Update state - we're onto psuedo negotiation
-            state = STATE_NEGOTIATING;
-            
-            NSXMLElement *query = [NSXMLElement elementWithName:@"query" xmlns:@"jabber:iq:auth"];
-            
-            NSXMLElement *iq = [NSXMLElement elementWithName:@"iq"];
-            [iq addAttributeWithName:@"type" stringValue:@"get"];
-            [iq addChild:query];
-            
-			NSString *outgoingStr = [iq compactXMLString];
-			NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-			
-            DDLogSend(@"SEND: %@", outgoingStr);
-			numberOfBytesSent += [outgoingData length];
-			
-            [asyncSocket writeData:outgoingData
-                       withTimeout:TIMEOUT_WRITE
-                               tag:TAG_WRITE_STREAM];
-            
-            // Now wait for the response IQ
-        }
-    }
-}
 
 - (void)xmppParser:(XMPPParser *)sender didReadElement:(NSXMLElement *)element
 {

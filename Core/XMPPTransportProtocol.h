@@ -7,8 +7,10 @@
 //
 
 #import <Foundation/Foundation.h>
+#if TARGET_OS_IPHONE
+    #import "DDXML.h"
+#endif
 
-@class NSXMLElement;
 @class XMPPJID;
 
 @protocol XMPPTransportProtocol
