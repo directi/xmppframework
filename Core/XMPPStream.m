@@ -1215,6 +1215,13 @@ enum XMPPStreamFlags
 #pragma mark Stream Negotiation
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+- (void)restartStream
+{
+    [rootElement release];
+    rootElement = [self newRootElement];
+    [transport restartStream];
+}
+
 /**
  * This method handles sending the opening <stream:stream ...> element which is needed in several situations.
 **/
@@ -1557,7 +1564,7 @@ enum XMPPStreamFlags
 			[self setIsAuthenticated:YES];
 			
 			// Now we start our negotiation over again...
-			[self sendOpeningNegotiation];
+			[self restartStream];
 		}
 	}
 	else
@@ -1632,7 +1639,7 @@ enum XMPPStreamFlags
 		[self setIsAuthenticated:YES];
 		
 		// Now we start our negotiation over again...
-		[self sendOpeningNegotiation];
+		[self restartStream];
 	}
 	else
 	{
@@ -1665,7 +1672,7 @@ enum XMPPStreamFlags
 		[self setIsAuthenticated:YES];
 		
 		// Now we start our negotiation over again...
-		[self sendOpeningNegotiation];
+		[self restartStream];
 	}
 }
 
@@ -2007,9 +2014,7 @@ enum XMPPStreamFlags
 - (void)transportDidSecure:(id<XMPPTransportProtocol>)sender
 {
     [multicastDelegate xmppStreamDidSecure:self];
-    [rootElement release];
-    rootElement = [self newRootElement];
-    [transport restartStream];
+    [self restartStream];
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
