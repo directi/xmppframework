@@ -1119,15 +1119,7 @@ enum XMPPStreamFlags
 		}
 	}
 	
-	NSString *outgoingStr = [element compactXMLString];
-	NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-	
-	DDLogSend(@"SEND: %@", outgoingStr);
-	numberOfBytesSent += [outgoingData length];
-	
-	[asyncSocket writeData:outgoingData
-	           withTimeout:TIMEOUT_WRITE
-	                   tag:tag];
+    [transport sendStanza:element];
 	
 	if ([element isKindOfClass:[XMPPIQ class]])
 	{
@@ -1387,15 +1379,7 @@ enum XMPPStreamFlags
 			[iq addAttributeWithName:@"type" stringValue:@"set"];
 			[iq addChild:bind];
 			
-			NSString *outgoingStr = [iq compactXMLString];
-			NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-			
-			DDLogSend(@"SEND: %@", outgoingStr);
-			numberOfBytesSent += [outgoingData length];
-			
-			[asyncSocket writeData:outgoingData
-					   withTimeout:TIMEOUT_WRITE
-							   tag:TAG_WRITE_STREAM];
+            [transport sendStanza:iq];
 		}
 		else
 		{
@@ -1407,15 +1391,7 @@ enum XMPPStreamFlags
 			[iq addAttributeWithName:@"type" stringValue:@"set"];
 			[iq addChild:bind];
 			
-			NSString *outgoingStr = [iq compactXMLString];
-			NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-			
-			DDLogSend(@"SEND: %@", outgoingStr);
-			numberOfBytesSent += [outgoingData length];
-			
-			[asyncSocket writeData:outgoingData
-					   withTimeout:TIMEOUT_WRITE
-							   tag:TAG_WRITE_STREAM];
+            [transport sendStanza:iq];
 		}
 		
 		// We're already listening for the response...
@@ -1706,16 +1682,7 @@ enum XMPPStreamFlags
 			[iq addAttributeWithName:@"type" stringValue:@"set"];
 			[iq addChild:session];
 			
-			NSString *outgoingStr = [iq compactXMLString];
-			NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-			
-			DDLogSend(@"SEND: %@", outgoingStr);
-			numberOfBytesSent += [outgoingData length];
-			
-			[asyncSocket writeData:outgoingData
-					   withTimeout:TIMEOUT_WRITE
-							   tag:TAG_WRITE_STREAM];
-			
+            [transport sendStanza:iq];
 			// Update state
 			state = STATE_START_SESSION;
 		}
@@ -1738,16 +1705,7 @@ enum XMPPStreamFlags
 		[iq addAttributeWithName:@"type" stringValue:@"set"];
 		[iq addChild:bind];
 		
-		NSString *outgoingStr = [iq compactXMLString];
-		NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-		
-		DDLogSend(@"SEND: %@", outgoingStr);
-		numberOfBytesSent += [outgoingData length];
-		
-		[asyncSocket writeData:outgoingData
-				   withTimeout:TIMEOUT_WRITE
-						   tag:TAG_WRITE_STREAM];
-		
+		[transport sendStanza:iq];
 		// The state remains in STATE_BINDING
 	}
 }
