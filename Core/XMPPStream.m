@@ -340,7 +340,11 @@ enum XMPPStreamFlags
     // Notify delegates
     [multicastDelegate xmppStreamWillConnect:self];
 
-    // Open TCP connection to the configured hostName.
+    // Instruct transport to open the connection
+    if (myJID)
+    {
+        [transport setMyJID:myJID];
+    }
     return [transport connect:errPtr];
 }
 

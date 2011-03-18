@@ -69,6 +69,8 @@ enum xmppSocketState {
     int numberOfBytesReceived;
 }
 
+@property (retain) XMPPJID *myJID;
+
 - (id)initWithHost:(NSString *)host port:(UInt16)port;
 
 - (void)addDelegate:(id)delegate;

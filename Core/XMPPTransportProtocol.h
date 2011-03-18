@@ -9,11 +9,13 @@
 #import <Foundation/Foundation.h>
 
 @class NSXMLElement;
+@class XMPPJID;
 
 @protocol XMPPTransportProtocol
 
 - (void)addDelegate:(id)delegate;
 - (void)removeDelegate:(id)delegate;
+- (void)setMyJID:(XMPPJID *)jid;
 - (BOOL)connect:(NSError **)errPtr;
 - (BOOL)disconnect;
 - (void)restartStream;

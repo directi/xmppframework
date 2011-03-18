@@ -22,6 +22,8 @@
 
 @implementation XMPPSocketTransport
 
+@synthesize myJID;
+
 - (id)initWithHost:(NSString *)givenHost port:(UInt16)givenPort
 {
     if ((self = [super init]))
