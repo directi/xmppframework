@@ -906,15 +906,7 @@ enum XMPPStreamFlags
 	if ([self supportsDigestMD5Authentication])
 	{
 		NSString *auth = @"<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='DIGEST-MD5'/>";
-		
-		NSData *outgoingData = [auth dataUsingEncoding:NSUTF8StringEncoding];
-		
-		DDLogSend(@"SEND: %@", auth);
-		numberOfBytesSent += [outgoingData length];
-		
-		[asyncSocket writeData:outgoingData
-				   withTimeout:TIMEOUT_WRITE
-						   tag:TAG_WRITE_STREAM];
+        [transport sendStanzaWithString:auth];
 		
 		// Save authentication information
 		[tempPassword release];
@@ -941,15 +933,7 @@ enum XMPPStreamFlags
 		[auth addAttributeWithName:@"mechanism" stringValue:@"PLAIN"];
 		[auth setStringValue:base64];
 		
-		NSString *outgoingStr = [auth compactXMLString];
-		NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-		
-		DDLogSend(@"SEND: %@", outgoingStr);
-		numberOfBytesSent += [outgoingData length];
-		
-		[asyncSocket writeData:outgoingData
-				   withTimeout:TIMEOUT_WRITE
-						   tag:TAG_WRITE_STREAM];
+        [transport sendStanza:auth];
 		
 		// Update state
 		state = STATE_AUTH_1;
@@ -992,16 +976,8 @@ enum XMPPStreamFlags
 		[iqElement addAttributeWithName:@"type" stringValue:@"set"];
 		[iqElement addChild:queryElement];
 		
-		NSString *outgoingStr = [iqElement compactXMLString];
-		NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-		
-		DDLogSend(@"SEND: %@", outgoingStr);
-		numberOfBytesSent += [outgoingData length];
-		
-		[asyncSocket writeData:outgoingData
-				   withTimeout:TIMEOUT_WRITE
-						   tag:TAG_WRITE_STREAM];
-		
+        [transport sendStanza:iqElement];
+
 		// Update state
 		state = STATE_AUTH_1;
 	}
@@ -2031,6 +2007,8 @@ enum XMPPStreamFlags
 - (void)transportDidSecure:(id<XMPPTransportProtocol>)sender
 {
     [multicastDelegate xmppStreamDidSecure:self];
+    [rootElement release];
+    rootElement = [self newRootElement];
     [transport restartStream];
 }
 
