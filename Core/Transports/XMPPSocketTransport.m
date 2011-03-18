@@ -10,6 +10,7 @@
 #import "MulticastDelegate.h"
 #import "AsyncSocket.h"
 #import "XMPPParser.h"
+#import "NSXMLElementAdditions.h"
 
 @implementation XMPPSocketTransport
 
@@ -55,6 +56,16 @@
 - (void)restartStream
 {
     
+}
+
+/**
+ * Returns the version attribute from the servers's <stream:stream/> element.
+ * This should be at least 1.0 to be RFC 3920 compliant.
+ * If no version number was set, the server is not RFC compliant, and 0 is returned.
+ **/
+- (float)serverXmppStreamVersionNumber
+{
+	return [rootElement attributeFloatValueForName:@"version" withDefaultValue:0.0F];
 }
 
 - (BOOL)sendStanza:(NSXMLElement *)stanza
@@ -173,6 +184,45 @@
     // And start reading in the server's XML stream
 	[asyncSocket readDataWithTimeout:TIMEOUT_READ_START tag:TAG_READ_START];
 }
+
+/**
+ * Called when a socket has completed reading the requested data. Not called if there is an error.
+ **/
+- (void)onSocket:(AsyncSocket *)sock didReadData:(NSData *)data withTag:(long)tag
+{
+	if (DEBUG_RECV_PRE)
+	{
+		NSString *dataAsStr = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+		DDLogRecvPre(@"RECV: %@", dataAsStr);
+		[dataAsStr release];
+	}
+
+	numberOfBytesReceived += [data length];
+	[parser parseData:data];
+}
+
+//////////////////////////////////////
+#pragma mark XMPPParser Delegate
+//////////////////////////////////////
+
+/**
+ * Called when the xmpp parser has read in the entire root element.
+ **/
+- (void)xmppParser:(XMPPParser *)sender didReadRoot:(NSXMLElement *)root
+{
+	DDLogRecvPost(@"RECV: %@", [root compactXMLString]);
+
+	// At this point we've sent our XML stream header, and we've received the response XML stream header.
+	// We save the root element of our stream for future reference.
+	// Digest Access authentication requires us to know the ID attribute from the <stream:stream/> element.
+
+    [rootElement release];
+    rootElement = [root retain];
+    state = XMPP_SOCKET_CONNECTED;
+    [multicastDelegate transportDidConnect:self];
+}
+
+
 
 
 @end

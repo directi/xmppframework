@@ -51,7 +51,6 @@ enum xmppSocketState {
     XMPP_SOCKET_DISCONNECTED,
     XMPP_SOCKET_OPENING,
     XMPP_SOCKET_NEGOTIATING,
-    XMPP_SOCKET_NEGOTIATED,
     XMPP_SOCKET_CONNECTED
 };
 
@@ -67,6 +66,8 @@ enum xmppSocketState {
     
     int numberOfBytesSent;
     int numberOfBytesReceived;
+
+    NSXMLElement *rootElement;
 }
 
 @property (retain) XMPPJID *myJID;
@@ -78,6 +79,7 @@ enum xmppSocketState {
 - (BOOL)connect:(NSError **)errPtr;
 - (BOOL)disconnect;
 - (void)restartStream;
+- (float)serverXmppStreamVersionNumber;
 - (BOOL)sendStanza:(NSXMLElement *)stanza;
 - (BOOL)sendStanzaWithString:(NSString *)string;
 - (BOOL)secure;

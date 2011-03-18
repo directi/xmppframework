@@ -19,6 +19,7 @@
 - (BOOL)connect:(NSError **)errPtr;
 - (BOOL)disconnect;
 - (void)restartStream;
+- (float)serverXmppStreamVersionNumber;
 - (BOOL)sendStanza:(NSXMLElement *)stanza;
 - (BOOL)sendStanzaWithString:(NSString *)string;
 @optional

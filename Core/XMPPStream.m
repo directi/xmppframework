@@ -1887,7 +1887,6 @@ enum XMPPStreamFlags
 
 - (void)transportDidConnect:(id<XMPPTransportProtocol>)transport
 {
-    [self sendOpeningNegotiation];
     [multicastDelegate xmppStreamDidStartNegotiation:self];
 }
 
