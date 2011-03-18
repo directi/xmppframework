@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #import "MulticastDelegate.h"
+#import "XMPPTransportProtocol.h"
 
 #if TARGET_OS_IPHONE
   #import "DDXML.h"
@@ -80,6 +81,7 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 	
 	int state;
 	AsyncSocket *asyncSocket;
+    id<XMPPTransportProtocol> transport;
 	
 	UInt64 numberOfBytesSent;
 	UInt64 numberOfBytesReceived;
@@ -112,6 +114,8 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 	
 	NSString *synchronousUUID;
 }
+
+- (id)initWithTransport:(id<XMPPTransportProtocol>)transport;
 
 /**
  * Standard XMPP initialization.

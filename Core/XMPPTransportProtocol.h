@@ -8,6 +8,8 @@
 
 #import <Foundation/Foundation.h>
 
+@class NSXMLElement;
+
 @protocol XMPPTransportProtocol
 
 - (void)addDelegate:(id)delegate;
@@ -15,7 +17,7 @@
 - (BOOL)connect:(NSError *)errPtr;
 - (BOOL)disconnect;
 - (BOOL)sendStanza:(NSXMLElement *)stanza;
-
+- (BOOL)sendStanzaWithString:(NSString *)string;
 @optional
 - (BOOL)secure;
 

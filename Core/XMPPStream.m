@@ -109,6 +109,17 @@ enum XMPPStreamFlags
 	autoDelegateDict = [[NSMutableDictionary alloc] init];
 }
 
+-(id)initWithTransport:(id<XMPPTransportProtocol>)givenTransport
+{
+    if ((self = [super init]))
+    {
+        [self commonInit];
+        transport = givenTransport;
+        [transport addDelegate:self];
+    }
+    return self;
+}
+
 /**
  * Standard XMPP initialization.
  * The stream is a standard client to server connection.
