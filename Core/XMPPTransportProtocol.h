@@ -10,13 +10,15 @@
 
 @protocol XMPPTransportProtocol
 
-- (void)setDelegate:(id)delegate;
+- (void)addDelegate:(id)delegate;
+- (void)removeDelegate:(id)delegate;
 - (BOOL)connect:(NSError *)errPtr;
 - (BOOL)disconnect;
 - (BOOL)sendStanza:(NSXMLElement *)stanza;
 
 @optional
 - (BOOL)secure;
+
 @end
 
 
