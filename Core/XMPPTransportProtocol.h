@@ -23,11 +23,12 @@
 
 
 @protocol XMPPTransportDelegate
+
+@optional
 - (void)transportDidConnect:(id <XMPPTransportProtocol>)transport;
 - (void)transportDidDisconnect:(id <XMPPTransportProtocol>)transport;
 - (void)transport:(id <XMPPTransportProtocol>)transport didReceiveStanza:(NSXMLElement *)stanza;
 - (void)transport:(id <XMPPTransportProtocol>)transport didReceiveError:(id)error;
-
-@optional
 - (void)transportDidSecure:(id <XMPPTransportProtocol>)transport;
+
 @end
