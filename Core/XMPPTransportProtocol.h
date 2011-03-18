@@ -24,8 +24,10 @@
 - (float)serverXmppStreamVersionNumber;
 - (BOOL)sendStanza:(NSXMLElement *)stanza;
 - (BOOL)sendStanzaWithString:(NSString *)string;
+
 @optional
-- (BOOL)secure;
+- (void)secure;
+- (BOOL)isSecure;
 
 @end
 
@@ -37,6 +39,7 @@
 - (void)transportDidStartNegotiation:(id <XMPPTransportProtocol>)transport;
 - (void)transportDidConnect:(id <XMPPTransportProtocol>)transport;
 - (void)transportDidDisconnect:(id <XMPPTransportProtocol>)transport;
+- (void)transport:(id <XMPPTransportProtocol>)transport willSecureWithSettings:(NSDictionary *)settings;
 - (void)transport:(id <XMPPTransportProtocol>)transport didReceiveStanza:(NSXMLElement *)stanza;
 - (void)transport:(id <XMPPTransportProtocol>)transport didReceiveError:(id)error;
 - (void)transportDidSecure:(id <XMPPTransportProtocol>)transport;

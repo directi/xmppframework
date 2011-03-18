@@ -14,6 +14,7 @@
 
 @implementation XMPPSocketTransport
 
+@synthesize host;
 @synthesize myJID;
 
 - (id)initWithHost:(NSString *)givenHost port:(UInt16)givenPort
@@ -25,6 +26,7 @@
         parser = [[XMPPParser alloc] initWithDelegate:self];
         host = givenHost;
         port = givenPort;
+        isSecure = NO;
         state = XMPP_SOCKET_DISCONNECTED;
         numberOfBytesSent = 0;
         numberOfBytesReceived = 0;
@@ -70,26 +72,46 @@
 
 - (BOOL)sendStanza:(NSXMLElement *)stanza
 {
-	NSString *outgoingStr = [stanza compactXMLString];
-	NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
+    return [self sendStanzaWithString:[stanza compactXMLString]];
+}
 
-	DDLogSend(@"SEND: %@", outgoingStr);
-	numberOfBytesSent += [outgoingData length];
-
-	[asyncSocket writeData:outgoingData
+- (BOOL)sendStanzaWithString:(NSString *)string
+{
+	NSData *data = [string dataUsingEncoding:NSUTF8StringEncoding];
+	DDLogSend(@"SEND: %@", string);
+	numberOfBytesSent += [data length];
+	[asyncSocket writeData:data
 	           withTimeout:TIMEOUT_WRITE
 	                   tag:TAG_WRITE_STREAM];
     return YES; // FIXME: does this need to be a BOOL?
 }
 
-- (BOOL)sendStanzaWithString:(NSString *)string
+/**
+ * This method handles starting TLS negotiation on the socket, using the proper settings.
+ **/
+- (void)secure
 {
-    return YES;
+	// Create a mutable dictionary for security settings
+	NSMutableDictionary *settings = [NSMutableDictionary dictionaryWithCapacity:5];
+	
+	// Prompt the delegate(s) to populate the security settings
+	[multicastDelegate transport:self willSecureWithSettings:settings];
+
+	// If the delegates didn't respond
+	if ([settings count] == 0)
+	{
+		// Use the default settings, and set the peer name
+		if (host)
+		{
+			[settings setObject:host forKey:(NSString *)kCFStreamSSLPeerName];
+		}
+	}
+	[asyncSocket startTLS:settings];
 }
 
-- (BOOL)secure
+- (BOOL)isSecure
 {
-    return YES;
+    return isSecure;
 }
 
 /////////////////////////
@@ -108,14 +130,7 @@
 		// TCP connection was just opened - We need to include the opening XML stanza
 		NSString *s1 = @"<?xml version='1.0'?>";
 		
-		NSData *outgoingData = [s1 dataUsingEncoding:NSUTF8StringEncoding];
-		
-		DDLogSend(@"SEND: %@", s1);
-		numberOfBytesSent += [outgoingData length];
-		
-		[asyncSocket writeData:outgoingData
-				   withTimeout:TIMEOUT_WRITE
-						   tag:TAG_WRITE_START];
+        [self sendStanzaWithString:s1];
 	}
 
 	if (state != XMPP_SOCKET_OPENING)
@@ -157,15 +172,8 @@
         s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream];
     }
     
-	NSData *outgoingData = [s2 dataUsingEncoding:NSUTF8StringEncoding];
-	
-	DDLogSend(@"SEND: %@", s2);
-	numberOfBytesSent += [outgoingData length];
-	
-	[asyncSocket writeData:outgoingData
-			   withTimeout:TIMEOUT_WRITE
-					   tag:TAG_WRITE_START];
-	
+    [self sendStanzaWithString:s2];
+
 	// Update status
 	state = XMPP_SOCKET_NEGOTIATING;
 	
@@ -208,6 +216,17 @@
 
 	numberOfBytesReceived += [data length];
 	[parser parseData:data];
+}
+
+- (void)onSocketDidSecure:(AsyncSocket *)sock
+{
+    isSecure = YES;
+    [multicastDelegate transportDidSecure:self];
+}
+
+- (void)onSocket:(AsyncSocket *)sock willDisconnectWithError:(NSError *)err
+{
+    NSLog(@"%@", [err description]);
 }
 
 //////////////////////////////////////

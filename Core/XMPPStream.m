@@ -353,7 +353,9 @@ enum XMPPStreamFlags
     {
         [transport setMyJID:myJID];
     }
-    return [transport connect:errPtr];
+    BOOL result = [transport connect:errPtr];
+    state = STATE_OPENING;
+    return result;
 }
 
 - (BOOL)oldSchoolSecureConnect:(NSError **)errPtr
@@ -577,15 +579,7 @@ enum XMPPStreamFlags
 - (void)sendStartTLSRequest
 {
 	NSString *starttls = @"<starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>";
-	
-	NSData *outgoingData = [starttls dataUsingEncoding:NSUTF8StringEncoding];
-	
-	DDLogSend(@"SEND: %@", starttls);
-	numberOfBytesSent += [outgoingData length];
-	
-	[asyncSocket writeData:outgoingData
-			   withTimeout:TIMEOUT_WRITE
-					   tag:TAG_WRITE_STREAM];
+	[transport sendStanzaWithString:starttls];
 }
 
 - (BOOL)secureConnection:(NSError **)errPtr
@@ -1352,33 +1346,6 @@ enum XMPPStreamFlags
 }
 
 /**
- * This method handles starting TLS negotiation on the socket, using the proper settings.
-**/
-- (void)startTLS
-{
-	// Create a mutable dictionary for security settings
-	NSMutableDictionary *settings = [NSMutableDictionary dictionaryWithCapacity:5];
-	
-	// Prompt the delegate(s) to populate the security settings
-	[multicastDelegate xmppStream:self willSecureWithSettings:settings];
-	
-	// If the delegates didn't respond
-	if ([settings count] == 0)
-	{
-		// Use the default settings, and set the peer name
-		if (hostName)
-		{
-			[settings setObject:hostName forKey:(NSString *)kCFStreamSSLPeerName];
-		}
-	}
-	
-	[asyncSocket startTLS:settings];
-	
-	// Note: We don't need to wait for asyncSocket to complete TLS negotiation.
-	// We can just continue reading/writing to the socket, and it will handle queueing everything for us!
-}
-
-/**
  * This method is called anytime we receive the server's stream features.
  * This method looks at the stream features, and handles any requirements so communication can continue.
 **/
@@ -1498,13 +1465,10 @@ enum XMPPStreamFlags
 	}
 	
 	// Start TLS negotiation
-	[self startTLS];
+	[transport secure];
 	
 	// Make a note of the switch to TLS
 	[self setIsSecure:YES];
-	
-	// Now we start our negotiation over again...
-	[self sendOpeningNegotiation];
 }
 
 /**
@@ -1933,113 +1897,9 @@ enum XMPPStreamFlags
     }
 }
 
-- (void)transportDidSecure:(id<XMPPTransportProtocol>)transport
+- (void)transport:(id<XMPPTransportProtocol>)transport didReceiveStanza:(NSXMLElement *)element
 {
-    [multicastDelegate xmppStreamDidSecure:self];
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#pragma mark AsyncSocket Delegate
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/**
- * Called when a socket has completed reading the requested data. Not called if there is an error.
-**/
-- (void)onSocket:(AsyncSocket *)sock didReadData:(NSData *)data withTag:(long)tag
-{
-	if (DEBUG_RECV_PRE)
-	{
-		NSString *dataAsStr = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-		
-		DDLogRecvPre(@"RECV: %@", dataAsStr);
-		
-		[dataAsStr release];
-	}
-	
-	numberOfBytesReceived += [data length];
-	
-	[parser parseData:data];
-}
-
-/**
- * Called after data with the given tag has been successfully sent.
-**/
-- (void)onSocket:(AsyncSocket *)sock didWriteDataWithTag:(long)tag
-{
-	if ((tag >= 0) && (tag <= UINT16_MAX))
-	{
-		[multicastDelegate xmppStream:self didSendElementWithTag:tag];
-	}
-	else if (tag == TAG_WRITE_SYNCHRONOUS)
-	{
-		flags &= ~kSynchronousSendPending;
-	}
-}
-
-/**
- * In the event of an error, the socket is closed.
- * When connecting, this delegate method may be called before onSocket:didConnectToHost:
-**/
-- (void)onSocket:(AsyncSocket *)sock willDisconnectWithError:(NSError *)err
-{
-	[multicastDelegate xmppStream:self didReceiveError:err];
-}
-
-/**
- * Called when a socket disconnects with or without error.  If you want to release a socket after it disconnects,
- * do so here. It is not safe to do that during "onSocket:willDisconnectWithError:".
-**/
-- (void)onSocketDidDisconnect:(AsyncSocket *)sock
-{
-	if (srvResults && (++srvResultsIndex < [srvResults count]))
-	{
-		[self tryNextSrvResult];
-	}
-	else
-	{
-		// Update state
-		state = STATE_DISCONNECTED;
-		
-		// Update configuration
-		[self setIsSecure:NO];
-		[self setIsAuthenticated:NO];
-		
-		// Release the parser (to free underlying resources)
-		[parser stop];
-		[parser release];
-		parser = nil;
-		
-		// Clear the root element
-		[rootElement release]; rootElement = nil;
-		
-		// Clear any saved authentication information
-		[tempPassword release]; tempPassword = nil;
-		
-		// Clear srv results
-		[srvResolver release]; srvResolver = nil;
-		[srvResults release];  srvResults = nil;
-		
-		// Clear any synchronous send attempts
-		[synchronousUUID release]; synchronousUUID = nil;
-		
-		// Stop the keep alive timer
-		[keepAliveTimer invalidate];
-		[keepAliveTimer release];
-		keepAliveTimer = nil;
-		
-		// Notify delegate
-		[multicastDelegate xmppStreamDidDisconnect:self];
-	}
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#pragma mark XMPPParser Delegate
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-- (void)xmppParser:(XMPPParser *)sender didReadElement:(NSXMLElement *)element
-{
-	DDLogRecvPost(@"RECV: %@", [element compactXMLString]);
-	
+	[rootElement addChild:element];
 	NSString *elementName = [element name];
 	
 	if([elementName isEqualToString:@"stream:error"] || [elementName isEqualToString:@"error"])
@@ -2157,7 +2017,7 @@ enum XMPPStreamFlags
 			[multicastDelegate xmppStream:self didReceivePresence:[XMPPPresence presenceFromElement:element]];
 		}
 		else if([self isP2P] &&
-		       ([elementName isEqualToString:@"stream:features"] || [elementName isEqualToString:@"features"]))
+                ([elementName isEqualToString:@"stream:features"] || [elementName isEqualToString:@"features"]))
 		{
 			[multicastDelegate xmppStream:self didReceiveP2PFeatures:element];
 		}
@@ -2167,6 +2027,109 @@ enum XMPPStreamFlags
 		}
 	}
 }
+
+- (void)transportDidSecure:(id<XMPPTransportProtocol>)transport
+{
+    [multicastDelegate xmppStreamDidSecure:self];
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#pragma mark AsyncSocket Delegate
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Called when a socket has completed reading the requested data. Not called if there is an error.
+**/
+- (void)onSocket:(AsyncSocket *)sock didReadData:(NSData *)data withTag:(long)tag
+{
+	if (DEBUG_RECV_PRE)
+	{
+		NSString *dataAsStr = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+		
+		DDLogRecvPre(@"RECV: %@", dataAsStr);
+		
+		[dataAsStr release];
+	}
+	
+	numberOfBytesReceived += [data length];
+	
+	[parser parseData:data];
+}
+
+/**
+ * Called after data with the given tag has been successfully sent.
+**/
+- (void)onSocket:(AsyncSocket *)sock didWriteDataWithTag:(long)tag
+{
+	if ((tag >= 0) && (tag <= UINT16_MAX))
+	{
+		[multicastDelegate xmppStream:self didSendElementWithTag:tag];
+	}
+	else if (tag == TAG_WRITE_SYNCHRONOUS)
+	{
+		flags &= ~kSynchronousSendPending;
+	}
+}
+
+/**
+ * In the event of an error, the socket is closed.
+ * When connecting, this delegate method may be called before onSocket:didConnectToHost:
+**/
+- (void)onSocket:(AsyncSocket *)sock willDisconnectWithError:(NSError *)err
+{
+	[multicastDelegate xmppStream:self didReceiveError:err];
+}
+
+/**
+ * Called when a socket disconnects with or without error.  If you want to release a socket after it disconnects,
+ * do so here. It is not safe to do that during "onSocket:willDisconnectWithError:".
+**/
+- (void)onSocketDidDisconnect:(AsyncSocket *)sock
+{
+	if (srvResults && (++srvResultsIndex < [srvResults count]))
+	{
+		[self tryNextSrvResult];
+	}
+	else
+	{
+		// Update state
+		state = STATE_DISCONNECTED;
+		
+		// Update configuration
+		[self setIsSecure:NO];
+		[self setIsAuthenticated:NO];
+		
+		// Release the parser (to free underlying resources)
+		[parser stop];
+		[parser release];
+		parser = nil;
+		
+		// Clear the root element
+		[rootElement release]; rootElement = nil;
+		
+		// Clear any saved authentication information
+		[tempPassword release]; tempPassword = nil;
+		
+		// Clear srv results
+		[srvResolver release]; srvResolver = nil;
+		[srvResults release];  srvResults = nil;
+		
+		// Clear any synchronous send attempts
+		[synchronousUUID release]; synchronousUUID = nil;
+		
+		// Stop the keep alive timer
+		[keepAliveTimer invalidate];
+		[keepAliveTimer release];
+		keepAliveTimer = nil;
+		
+		// Notify delegate
+		[multicastDelegate xmppStreamDidDisconnect:self];
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#pragma mark XMPPParser Delegate
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 - (void)xmppParserDidEnd:(XMPPParser *)sender
 {

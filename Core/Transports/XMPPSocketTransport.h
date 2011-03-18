@@ -64,12 +64,14 @@ enum xmppSocketState {
     UInt16 port;
     XMPPJID *myJID;
     
+    BOOL isSecure;
+    
     int numberOfBytesSent;
     int numberOfBytesReceived;
 
     NSXMLElement *rootElement;
 }
-
+@property (readonly) NSString *host;
 @property (retain) XMPPJID *myJID;
 
 - (id)initWithHost:(NSString *)host port:(UInt16)port;
@@ -82,6 +84,8 @@ enum xmppSocketState {
 - (float)serverXmppStreamVersionNumber;
 - (BOOL)sendStanza:(NSXMLElement *)stanza;
 - (BOOL)sendStanzaWithString:(NSString *)string;
-- (BOOL)secure;
+
+- (void)secure;
+- (BOOL)isSecure;
 
 @end
