@@ -51,7 +51,8 @@ enum xmppSocketState {
     XMPP_SOCKET_DISCONNECTED,
     XMPP_SOCKET_OPENING,
     XMPP_SOCKET_NEGOTIATING,
-    XMPP_SOCKET_CONNECTED
+    XMPP_SOCKET_CONNECTED,
+    XMPP_SOCKET_RESTARTING
 };
 
 @interface XMPPSocketTransport : NSObject <XMPPTransportProtocol> {

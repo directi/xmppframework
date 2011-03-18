@@ -1897,7 +1897,7 @@ enum XMPPStreamFlags
     }
 }
 
-- (void)transport:(id<XMPPTransportProtocol>)transport didReceiveStanza:(NSXMLElement *)element
+- (void)transport:(id<XMPPTransportProtocol>)sender didReceiveStanza:(NSXMLElement *)element
 {
 	[rootElement addChild:element];
 	NSString *elementName = [element name];
@@ -2028,9 +2028,10 @@ enum XMPPStreamFlags
 	}
 }
 
-- (void)transportDidSecure:(id<XMPPTransportProtocol>)transport
+- (void)transportDidSecure:(id<XMPPTransportProtocol>)sender
 {
     [multicastDelegate xmppStreamDidSecure:self];
+    [transport restartStream];
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

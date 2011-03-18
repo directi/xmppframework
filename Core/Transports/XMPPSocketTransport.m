@@ -55,11 +55,6 @@
     return YES;
 }
 
-- (void)restartStream
-{
-    
-}
-
 /**
  * Returns the version attribute from the servers's <stream:stream/> element.
  * This should be at least 1.0 to be RFC 3920 compliant.
@@ -114,10 +109,6 @@
     return isSecure;
 }
 
-/////////////////////////
-#pragma mark PrivateAPI
-/////////////////////////
-
 /**
  * This method handles sending the opening <stream:stream ...> element which is needed in several situations.
  **/
@@ -125,7 +116,7 @@
 {
 	BOOL isRenegotiation = NO;
 	
-	if (state == XMPP_SOCKET_OPENING)
+	if ((state == XMPP_SOCKET_OPENING) || (state == XMPP_SOCKET_RESTARTING))
 	{
 		// TCP connection was just opened - We need to include the opening XML stanza
 		NSString *s1 = @"<?xml version='1.0'?>";
@@ -183,6 +174,12 @@
 	{
 		[asyncSocket readDataWithTimeout:TIMEOUT_READ_START tag:TAG_READ_START];
 	}
+}
+
+- (void)restartStream
+{
+    state = XMPP_SOCKET_RESTARTING;
+    [self sendOpeningNegotiation];
 }
 
 //////////////////////////////////
