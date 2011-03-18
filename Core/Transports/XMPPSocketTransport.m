@@ -11,15 +11,6 @@
 #import "AsyncSocket.h"
 #import "XMPPParser.h"
 
-@interface XMPPSocketTransport ()
-
-- (void)sendOpeningNegotiation;
-
-- (BOOL)onSocketWillConnect:(AsyncSocket *)socket;
-- (void)onSocket:(AsyncSocket *)socket didConnectToHost:(NSString *)givenHost port:(UInt16)givenPort;
-
-@end
-
 @implementation XMPPSocketTransport
 
 @synthesize myJID;
