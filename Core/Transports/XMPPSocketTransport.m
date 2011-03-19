@@ -50,9 +50,11 @@
     return [asyncSocket connectToHost:host onPort:port error:errPtr];
 }
 
-- (BOOL)disconnect
+- (void)disconnect
 {
-    return YES;
+    [self sendStanzaWithString:@"</stream:stream>"];
+    [multicastDelegate transportWillDisconnect:self];
+    [asyncSocket disconnect];
 }
 
 /**
@@ -223,7 +225,12 @@
 
 - (void)onSocket:(AsyncSocket *)sock willDisconnectWithError:(NSError *)err
 {
-    NSLog(@"%@", [err description]);
+    [multicastDelegate transportWillDisconnect:self withError:err];
+}
+
+- (void)onSocketDidDisconnect:(AsyncSocket *)sock
+{
+    [multicastDelegate transportDidDisconnect:self];
 }
 
 //////////////////////////////////////

@@ -80,7 +80,7 @@ enum xmppSocketState {
 - (void)addDelegate:(id)delegate;
 - (void)removeDelegate:(id)delegate;
 - (BOOL)connect:(NSError **)errPtr;
-- (BOOL)disconnect;
+- (void)disconnect;
 - (void)restartStream;
 - (float)serverXmppStreamVersionNumber;
 - (BOOL)sendStanza:(NSXMLElement *)stanza;

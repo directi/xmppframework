@@ -19,7 +19,7 @@
 - (void)removeDelegate:(id)delegate;
 - (void)setMyJID:(XMPPJID *)jid;
 - (BOOL)connect:(NSError **)errPtr;
-- (BOOL)disconnect;
+- (void)disconnect;
 - (void)restartStream;
 - (float)serverXmppStreamVersionNumber;
 - (BOOL)sendStanza:(NSXMLElement *)stanza;
@@ -38,6 +38,8 @@
 - (void)transportWillConnect:(id <XMPPTransportProtocol>)transport;
 - (void)transportDidStartNegotiation:(id <XMPPTransportProtocol>)transport;
 - (void)transportDidConnect:(id <XMPPTransportProtocol>)transport;
+- (void)transportWillDisconnect:(id <XMPPTransportProtocol>)transport;
+- (void)transportWillDisconnect:(id<XMPPTransportProtocol>)transport withError:(NSError *)err;
 - (void)transportDidDisconnect:(id <XMPPTransportProtocol>)transport;
 - (void)transport:(id <XMPPTransportProtocol>)transport willSecureWithSettings:(NSDictionary *)settings;
 - (void)transport:(id <XMPPTransportProtocol>)transport didReceiveStanza:(NSXMLElement *)stanza;

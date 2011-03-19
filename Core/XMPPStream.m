@@ -530,7 +530,7 @@ enum XMPPStreamFlags
 - (void)disconnect
 {
 	[multicastDelegate xmppStreamWasToldToDisconnect:self];
-	[asyncSocket disconnect];
+	[transport disconnect]; // FIXME: this method should be synchronous
 	
 	// Note: The state is updated automatically in the onSocketDidDisconnect: method.
 }
@@ -538,7 +538,7 @@ enum XMPPStreamFlags
 - (void)disconnectAfterSending
 {
 	[multicastDelegate xmppStreamWasToldToDisconnect:self];
-	[asyncSocket disconnectAfterWriting];
+	[transport disconnect];
 	
 	// Note: The state is updated automatically in the onSocketDidDisconnect: method.
 }
@@ -1972,6 +1972,21 @@ enum XMPPStreamFlags
 {
     [multicastDelegate xmppStreamDidSecure:self];
     [self restartStream];
+}
+
+- (void)transportWillDisconnect:(id<XMPPTransportProtocol>)sender withError:(NSError *)err
+{
+    [multicastDelegate xmppStream:self didReceiveError:err];
+}
+
+- (void)transportDidDisconnect:(id<XMPPTransportProtocol>)sender
+{
+    state = STATE_DISCONNECTED;
+    
+    [rootElement release];
+    rootElement = nil;
+    
+    [multicastDelegate xmppStreamDidDisconnect:self];
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
