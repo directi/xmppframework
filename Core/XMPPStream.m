@@ -1840,7 +1840,6 @@ enum XMPPStreamFlags
 
 - (void)transport:(id<XMPPTransportProtocol>)sender didReceiveStanza:(NSXMLElement *)element
 {
-	[rootElement addChild:element];
 	NSString *elementName = [element name];
 	
 	if([elementName isEqualToString:@"stream:error"] || [elementName isEqualToString:@"error"])
