@@ -10,6 +10,7 @@
 #import "XMPPPresence.h"
 #import "NSXMLElementAdditions.h"
 #import "NSStringAdditions.h"
+#import "XMPPSocketTransport.h"
 
 #import <arpa/inet.h>
 
@@ -649,10 +650,15 @@
 		NSLog(@"myJID: %@", myJID);
 		NSLog(@"serviceJID: %@", serviceJID);
 		
-		xmppStream = [[XMPPStream alloc] initP2PFrom:myJID];
+        struct sockaddr_in *addr = (struct sockaddr_in *)[address bytes];
+        XMPPSocketTransport *transport = [[XMPPSocketTransport alloc] initP2PWithHost:addrStr port:ntohs(addr->sin_port)];
+		xmppStream = [[XMPPStream alloc] initWithP2PTransport:transport];
+        
+        [xmppStream setMyJID:myJID];
+        [xmppStream setRemoteJID:serviceJID];
 		
 		[xmppStream addDelegate:self];
-		[xmppStream connectTo:serviceJID withAddress:address error:nil];
+		[xmppStream connect:nil];
 	}
 	
 	[ns stop];

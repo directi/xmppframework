@@ -6,6 +6,7 @@
 #import "Message.h"
 #import "NSXMLElementAdditions.h"
 #import "NSStringAdditions.h"
+#import "XMPPSocketTransport.h"
 
 #define THIS_FILE   @"StreamController"
 #define THIS_METHOD NSStringFromSelector(_cmd)
@@ -168,13 +169,15 @@ static StreamController *sharedInstance;
 		NSLog(@"Accepting connection from service: %@", service.serviceDescription);
 		
 		id tag = [self nextXMPPStreamTag];
-		
-		XMPPStream *xmppStream = [[XMPPStream alloc] initP2PFrom:[self myJID]];
+		XMPPSocketTransport *transport = [[XMPPSocketTransport alloc] initP2PWithSocket:sock];
+		XMPPStream *xmppStream = [[XMPPStream alloc] initWithP2PTransport:transport];
+        
+        [xmppStream setMyJID:[self myJID]];
 		
 		[xmppStream addDelegate:self];
 		xmppStream.tag = tag;
 		
-		[xmppStream connectP2PWithSocket:sock error:nil];
+		[xmppStream connect:nil];
 		
 		[xmppStreams addObject:xmppStream];
 		[serviceDict setObject:[service objectID] forKey:tag];
