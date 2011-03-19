@@ -697,15 +697,7 @@ enum XMPPStreamFlags
 	[iqElement addAttributeWithName:@"type" stringValue:@"set"];
 	[iqElement addChild:queryElement];
 	
-	NSString *outgoingStr = [iqElement compactXMLString];
-	NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-	
-	DDLogSend(@"SEND: %@", outgoingStr);
-	numberOfBytesSent += [outgoingData length];
-	
-	[asyncSocket writeData:outgoingData
-	           withTimeout:TIMEOUT_WRITE
-	                   tag:TAG_WRITE_STREAM];
+    [transport sendStanza:iqElement];
 	
 	// Update state
 	state = STATE_REGISTERING;
@@ -1018,15 +1010,7 @@ enum XMPPStreamFlags
 	NSXMLElement *auth = [NSXMLElement elementWithName:@"auth" xmlns:@"urn:ietf:params:xml:ns:xmpp-sasl"];
 	[auth addAttributeWithName:@"mechanism" stringValue:@"ANONYMOUS"];
 	
-	NSString *outgoingStr = [auth compactXMLString];
-	NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-	
-	DDLogSend(@"SEND: %@", outgoingStr);
-	numberOfBytesSent += [outgoingData length];
-	
-	[asyncSocket writeData:outgoingData
-	           withTimeout:TIMEOUT_WRITE
-	                   tag:TAG_WRITE_STREAM];
+    [transport sendStanza:auth];
 	
 	// Update state
 	state = STATE_AUTH_3;
@@ -1505,16 +1489,8 @@ enum XMPPStreamFlags
 			NSXMLElement *cr = [NSXMLElement elementWithName:@"response" xmlns:@"urn:ietf:params:xml:ns:xmpp-sasl"];
 			[cr setStringValue:[auth base64EncodedFullResponse]];
 			
-			NSString *outgoingStr = [cr compactXMLString];
-			NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-			
-			DDLogSend(@"SEND: %@", outgoingStr);
-			numberOfBytesSent += [outgoingData length];
-			
-			[asyncSocket writeData:outgoingData
-					   withTimeout:TIMEOUT_WRITE
-							   tag:TAG_WRITE_STREAM];
-			
+            [transport sendStanza:cr];
+            
 			// Release unneeded resources
 			[auth release];
 			[tempPassword release]; tempPassword = nil;
@@ -1596,15 +1572,7 @@ enum XMPPStreamFlags
 			// Create and send empty challenge response element
 			NSXMLElement *cr = [NSXMLElement elementWithName:@"response" xmlns:@"urn:ietf:params:xml:ns:xmpp-sasl"];
 			
-			NSString *outgoingStr = [cr compactXMLString];
-			NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-			
-			DDLogSend(@"SEND: %@", outgoingStr);
-			numberOfBytesSent += [outgoingData length];
-			
-			[asyncSocket writeData:outgoingData
-					   withTimeout:TIMEOUT_WRITE
-							   tag:TAG_WRITE_STREAM];
+            [transport sendStanza:cr];
 			
 			// The state remains in STATE_AUTH_2
 		}
