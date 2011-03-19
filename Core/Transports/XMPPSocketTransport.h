@@ -71,11 +71,20 @@ enum xmppSocketState {
     int numberOfBytesReceived;
 
     NSXMLElement *rootElement;
+    
+    // P2P stuff
+    BOOL isP2P;
+    BOOL isP2PRecipient;
+    XMPPJID *remoteJID;
 }
 @property (readonly) NSString *host;
 @property (retain) XMPPJID *myJID;
+@property (retain) XMPPJID *remoteJID;
+@property (readonly) BOOL isP2PRecipient;
 
 - (id)initWithHost:(NSString *)host port:(UInt16)port;
+- (id)initP2PWithHost:(NSString *)host port:(UInt16)port;
+- (id)initP2PWithSocket:(AsyncSocket *)socket;
 
 - (void)addDelegate:(id)delegate;
 - (void)removeDelegate:(id)delegate;

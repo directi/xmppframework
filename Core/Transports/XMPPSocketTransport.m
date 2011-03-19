@@ -11,25 +11,66 @@
 #import "AsyncSocket.h"
 #import "XMPPParser.h"
 #import "NSXMLElementAdditions.h"
+#import "XMPPJID.h"
+
+@interface XMPPSocketTransport ()
+- (void)sendOpeningNegotiation;
+@end
 
 @implementation XMPPSocketTransport
 
 @synthesize host;
 @synthesize myJID;
+@synthesize remoteJID;
+@synthesize isP2PRecipient;
+
+- (id)init
+{
+    self = [super init];
+    if (self)
+    {
+        multicastDelegate = [[MulticastDelegate alloc] init];
+        parser = [[XMPPParser alloc] initWithDelegate:self];
+        isSecure = NO;
+        numberOfBytesSent = 0;
+        numberOfBytesReceived = 0;
+    }
+    return self;
+}
 
 - (id)initWithHost:(NSString *)givenHost port:(UInt16)givenPort
 {
-    if ((self = [super init]))
+    self = [self init];
+    if (self)
     {
-        multicastDelegate = [[MulticastDelegate alloc] init];
         asyncSocket = [[AsyncSocket alloc] initWithDelegate:self];
-        parser = [[XMPPParser alloc] initWithDelegate:self];
         host = givenHost;
         port = givenPort;
-        isSecure = NO;
         state = XMPP_SOCKET_DISCONNECTED;
-        numberOfBytesSent = 0;
-        numberOfBytesReceived = 0;
+    }
+    return self;
+}
+
+- (id)initP2PWithHost:(NSString *)givenHost port:(UInt16)givenPort
+{
+    self = [self initWithHost:givenHost port:givenPort];
+    if (self)
+    {
+        isP2P = YES;
+    }
+    return self;
+}
+
+- (id)initP2PWithSocket:(AsyncSocket *)socket
+{
+    self = [self init];
+    if (self)
+    {
+        asyncSocket = [socket retain];
+        [asyncSocket setDelegate:self];
+        state = XMPP_SOCKET_OPENING;
+        isP2P = YES;
+        isP2PRecipient = YES;
     }
     return self;
 }
@@ -46,8 +87,17 @@
 
 - (BOOL)connect:(NSError **)errPtr
 {
-    state = XMPP_SOCKET_OPENING;
-    return [asyncSocket connectToHost:host onPort:port error:errPtr];
+    if (isP2P && isP2PRecipient)
+    {
+        // Start reading in the peer's XML stream
+        [asyncSocket readDataWithTimeout:TIMEOUT_READ_START tag:TAG_READ_START];
+        return YES;
+    } 
+    else 
+    {
+        state = XMPP_SOCKET_OPENING;
+        return [asyncSocket connectToHost:host onPort:port error:errPtr];
+    }
 }
 
 - (void)disconnect
@@ -149,20 +199,46 @@
 	
 	NSString *temp, *s2;
 
-    if (myJID)
+    if (isP2P)
     {
-        temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' to='%@'>";
-        s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream, [myJID domain]];
-    }
-    else if ([host length] > 0)
-    {
-        temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' to='%@'>";
-        s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream, host];
+        if (myJID && remoteJID)
+		{
+			temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' from='%@' to='%@'>";
+			s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream, [myJID bare], [remoteJID bare]];
+		}
+		else if (myJID)
+		{
+			temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' from='%@'>";
+			s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream, [myJID bare]];
+		}
+		else if (remoteJID)
+		{
+			temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' to='%@'>";
+			s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream, [remoteJID bare]];
+		}
+		else
+		{
+			temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0'>";
+			s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream];
+		}
     }
     else
     {
-        temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0'>";
-        s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream];
+        if (myJID)
+        {
+            temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' to='%@'>";
+            s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream, [myJID domain]];
+        }
+        else if ([host length] > 0)
+        {
+            temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' to='%@'>";
+            s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream, host];
+        }
+        else
+        {
+            temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0'>";
+            s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream];
+        }
     }
     
     [self sendStanzaWithString:s2];
@@ -257,6 +333,14 @@
 - (void)xmppParser:(XMPPParser *)sender didReadRoot:(NSXMLElement *)root
 {
 	DDLogRecvPost(@"RECV: %@", [root compactXMLString]);
+    
+    if (isP2PRecipient)
+    {
+        NSLog(@"didReadRoot");
+        self.remoteJID = [XMPPJID jidWithString:[root attributeStringValueForName:@"from"]];
+        [self sendOpeningNegotiation];
+        [multicastDelegate transportDidStartNegotiation:self];
+    }
 
 	// At this point we've sent our XML stream header, and we've received the response XML stream header.
 	// We save the root element of our stream for future reference.

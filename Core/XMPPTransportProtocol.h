@@ -29,6 +29,11 @@
 - (void)secure;
 - (BOOL)isSecure;
 
+// P2P
+- (XMPPJID *)remoteJID;
+- (void)setRemoteJID:(XMPPJID *)jid;
+- (BOOL)isP2PRecipient;
+
 @end
 
 
