@@ -1836,36 +1836,6 @@ enum XMPPStreamFlags
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#pragma mark XMPPParser Delegate
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-- (void)xmppParserDidEnd:(XMPPParser *)sender
-{
-	[asyncSocket disconnect];
-}
-
-- (void)xmppParser:(XMPPParser *)sender didFail:(NSError *)error
-{
-	[multicastDelegate xmppStream:self didReceiveError:error];
-	
-	[asyncSocket disconnect];
-}
-
-- (void)xmppParser:(XMPPParser *)sender didParseDataOfLength:(NSUInteger)length
-{
-	// The chunk we read has now been fully parsed.
-	// Continue reading for XML elements.
-	if(state == STATE_OPENING)
-	{
-		[asyncSocket readDataWithTimeout:TIMEOUT_READ_START tag:TAG_READ_START];
-	}
-	else
-	{
-		[asyncSocket readDataWithTimeout:TIMEOUT_READ_STREAM tag:TAG_READ_STREAM];
-	}
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark Keep Alive
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

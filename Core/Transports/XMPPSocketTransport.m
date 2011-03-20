@@ -12,14 +12,18 @@
 #import "XMPPParser.h"
 #import "NSXMLElementAdditions.h"
 #import "XMPPJID.h"
+#import "RFSRVResolver.h"
 
 @interface XMPPSocketTransport ()
+@property (readwrite, copy) NSString *host;
+@property (readwrite, assign) UInt16 port;
 - (void)sendOpeningNegotiation;
 @end
 
 @implementation XMPPSocketTransport
 
 @synthesize host;
+@synthesize port;
 @synthesize myJID;
 @synthesize remoteJID;
 @synthesize isP2PRecipient;
@@ -43,7 +47,6 @@
     self = [self init];
     if (self)
     {
-        asyncSocket = [[AsyncSocket alloc] initWithDelegate:self];
         host = givenHost;
         port = givenPort;
         state = XMPP_SOCKET_DISCONNECTED;
@@ -93,9 +96,17 @@
         [asyncSocket readDataWithTimeout:TIMEOUT_READ_START tag:TAG_READ_START];
         return YES;
     } 
-    else 
+    else if ([host length] == 0)
+    {
+        state = XMPP_SOCKET_RESOLVING_SRV;
+        [srvResolver release];
+        srvResolver = [[RFSRVResolver resolveWithTransport:self delegate:self] retain];
+        return YES;
+    }
+    else
     {
         state = XMPP_SOCKET_OPENING;
+        asyncSocket = [[AsyncSocket alloc] initWithDelegate:self];
         return [asyncSocket connectToHost:host onPort:port error:errPtr];
     }
 }
@@ -336,7 +347,6 @@
     
     if (isP2PRecipient)
     {
-        NSLog(@"didReadRoot");
         self.remoteJID = [XMPPJID jidWithString:[root attributeStringValueForName:@"from"]];
         [self sendOpeningNegotiation];
         [multicastDelegate transportDidStartNegotiation:self];
@@ -356,6 +366,74 @@
 {
     DDLogRecvPost(@"RECV: %@", [element compactXMLString]);
     [multicastDelegate transport:self didReceiveStanza:element];
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#pragma mark RFSRVResolver Delegate
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+- (void)tryNextSrvResult
+{
+	NSError *connectError = nil;
+	BOOL success = NO;
+	
+	while (srvResultsIndex < [srvResults count])
+	{
+		RFSRVRecord *srvRecord = [srvResults objectAtIndex:srvResultsIndex];
+		self.host = srvRecord.target;
+		self.port = srvRecord.port;
+
+        DDLogInfo(@"Got SRV results. Trying %@:%d", self.host, self.port);
+		success = [self connect:&connectError];
+            
+		if (success)
+		{
+			break;
+		}
+		else
+		{
+			srvResultsIndex++;
+		}
+	}
+	
+	if (!success)
+	{
+		// SRV resolution of the JID domain failed.
+		// As per the RFC:
+		// 
+		// "If the SRV lookup fails, the fallback is a normal IPv4/IPv6 address record resolution
+		// to determine the IP address, using the "xmpp-client" port 5222, registered with the IANA."
+		// 
+		// In other words, just try connecting to the domain specified in the JID.
+        
+        self.host = [myJID domain];
+        self.port = 5222;
+		
+		success = [self connect:&connectError];
+	}
+	
+	if (!success)
+	{
+		state = XMPP_SOCKET_DISCONNECTED;
+		
+		[multicastDelegate transport:self didReceiveError:connectError];
+		[multicastDelegate transportDidDisconnect:self];
+	}
+}
+
+- (void)srvResolverDidResoveSRV:(RFSRVResolver *)sender
+{
+	srvResults = [[sender results] copy];
+	srvResultsIndex = 0;
+	
+	[self tryNextSrvResult];
+}
+
+- (void)srvResolver:(RFSRVResolver *)sender didNotResolveSRVWithError:(NSError *)srvError
+{
+    DDLogError(@"%s %@",__PRETTY_FUNCTION__,srvError);
+    
+	[self tryNextSrvResult];
 }
 
 @end

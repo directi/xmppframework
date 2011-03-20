@@ -17,6 +17,7 @@
 @class AsyncSocket;
 @class XMPPParser;
 @class XMPPJID;
+@class RFSRVResolver;
 
 // Define the debugging state
 #define DEBUG_SEND      YES
@@ -49,6 +50,7 @@
 
 enum xmppSocketState {
     XMPP_SOCKET_DISCONNECTED,
+    XMPP_SOCKET_RESOLVING_SRV,
     XMPP_SOCKET_OPENING,
     XMPP_SOCKET_NEGOTIATING,
     XMPP_SOCKET_CONNECTED,
@@ -76,12 +78,18 @@ enum xmppSocketState {
     BOOL isP2P;
     BOOL isP2PRecipient;
     XMPPJID *remoteJID;
+    
+    // SRV resolver
+    RFSRVResolver *srvResolver;
+	NSArray *srvResults;
+	NSUInteger srvResultsIndex;
 }
-@property (readonly) NSString *host;
+@property (readonly, copy) NSString *host;
 @property (retain) XMPPJID *myJID;
 @property (retain) XMPPJID *remoteJID;
 @property (readonly) BOOL isP2PRecipient;
 
+- (id)init;
 - (id)initWithHost:(NSString *)host port:(UInt16)port;
 - (id)initP2PWithHost:(NSString *)host port:(UInt16)port;
 - (id)initP2PWithSocket:(AsyncSocket *)socket;
