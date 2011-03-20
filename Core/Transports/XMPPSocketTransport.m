@@ -17,6 +17,7 @@
 @interface XMPPSocketTransport ()
 @property (readwrite, copy) NSString *host;
 @property (readwrite, assign) UInt16 port;
+- (BOOL)sendString:(NSString *)string;
 - (void)sendOpeningNegotiation;
 @end
 
@@ -38,6 +39,7 @@
         isSecure = NO;
         numberOfBytesSent = 0;
         numberOfBytesReceived = 0;
+        keepAliveInterval = DEFAULT_KEEPALIVE_INTERVAL;
     }
     return self;
 }
@@ -78,6 +80,13 @@
     return self;
 }
 
+- (void)dealloc
+{
+    [keepAliveTimer invalidate];
+	[keepAliveTimer release];
+    [super dealloc];
+}
+
 - (void)addDelegate:(id)delegate
 {
     [multicastDelegate addDelegate:delegate];
@@ -113,7 +122,7 @@
 
 - (void)disconnect
 {
-    [self sendStanzaWithString:@"</stream:stream>"];
+    [self sendString:@"</stream:stream>"];
     [multicastDelegate transportWillDisconnect:self];
     [asyncSocket disconnect];
 }
@@ -128,12 +137,7 @@
 	return [rootElement attributeFloatValueForName:@"version" withDefaultValue:0.0F];
 }
 
-- (BOOL)sendStanza:(NSXMLElement *)stanza
-{
-    return [self sendStanzaWithString:[stanza compactXMLString]];
-}
-
-- (BOOL)sendStanzaWithString:(NSString *)string
+- (BOOL)sendString:(NSString *)string
 {
 	NSData *data = [string dataUsingEncoding:NSUTF8StringEncoding];
 	DDLogSend(@"SEND: %@", string);
@@ -142,6 +146,16 @@
 	           withTimeout:TIMEOUT_WRITE
 	                   tag:TAG_WRITE_STREAM];
     return YES; // FIXME: does this need to be a BOOL?
+}
+
+- (BOOL)sendStanzaWithString:(NSString *)string
+{
+    return [self sendString:string];
+}
+
+- (BOOL)sendStanza:(NSXMLElement *)stanza
+{
+    return [self sendStanzaWithString:[stanza compactXMLString]];
 }
 
 /**
@@ -184,7 +198,7 @@
 		// TCP connection was just opened - We need to include the opening XML stanza
 		NSString *s1 = @"<?xml version='1.0'?>";
 		
-        [self sendStanzaWithString:s1];
+        [self sendString:s1];
 	}
 
 	if (state != XMPP_SOCKET_OPENING)
@@ -252,7 +266,7 @@
         }
     }
     
-    [self sendStanzaWithString:s2];
+    [self sendString:s2];
 
 	// Update status
 	state = XMPP_SOCKET_NEGOTIATING;
@@ -269,6 +283,47 @@
 {
     state = XMPP_SOCKET_RESTARTING;
     [self sendOpeningNegotiation];
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#pragma mark Keep Alive
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+- (void)setupKeepAliveTimer
+{
+	[keepAliveTimer invalidate];
+	[keepAliveTimer release];
+	keepAliveTimer = nil;
+	
+	if (state == XMPP_SOCKET_CONNECTED)
+	{
+		if (keepAliveInterval > 0)
+		{
+			keepAliveTimer = [[NSTimer scheduledTimerWithTimeInterval:keepAliveInterval
+															   target:self
+															 selector:@selector(keepAlive:)
+															 userInfo:nil
+															  repeats:YES] retain];
+		}
+	}
+}
+
+- (void)setKeepAliveInterval:(NSTimeInterval)interval
+{
+	if (keepAliveInterval != interval)
+	{
+		keepAliveInterval = interval;
+		
+		[self setupKeepAliveTimer];
+	}
+}
+
+- (void)keepAlive:(NSTimer *)aTimer
+{
+	if (state == XMPP_SOCKET_CONNECTED)
+	{
+        [self sendString:@" "];
+	}
 }
 
 //////////////////////////////////
@@ -359,6 +414,7 @@
     [rootElement release];
     rootElement = [root retain];
     state = XMPP_SOCKET_CONNECTED;
+    [self setupKeepAliveTimer];
     [multicastDelegate transportDidConnect:self];
 }
 

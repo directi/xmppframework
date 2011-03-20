@@ -74,6 +74,10 @@ enum xmppSocketState {
 
     NSXMLElement *rootElement;
     
+    // keep alive
+    NSTimeInterval keepAliveInterval;
+	NSTimer *keepAliveTimer;
+    
     // P2P stuff
     BOOL isP2P;
     BOOL isP2PRecipient;
