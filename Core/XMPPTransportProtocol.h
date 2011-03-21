@@ -17,6 +17,7 @@
 
 - (void)addDelegate:(id)delegate;
 - (void)removeDelegate:(id)delegate;
+- (XMPPJID *)myJID;
 - (void)setMyJID:(XMPPJID *)jid;
 - (BOOL)connect:(NSError **)errPtr;
 - (void)disconnect;

@@ -20,10 +20,12 @@
 {
     // Replace me with the proper host name and port
     //transport = [[XMPPSocketTransport alloc] initWithHost:@"talk.google.com" port:5222];
+    transport = [[XMPPSocketTransport alloc] init];
 	xmppStream = [[XMPPStream alloc] initWithTransport:transport];
 	xmppRosterStorage = [[XMPPRosterCoreDataStorage alloc] init];
 	xmppRoster = [[XMPPRoster alloc] initWithStream:xmppStream rosterStorage:xmppRosterStorage];
 	
+    [transport addDelegate:self];
 	[xmppStream addDelegate:self];
 	[xmppRoster addDelegate:self];
 	
@@ -99,7 +101,7 @@
 #pragma mark XMPPStream Delegate
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-- (void)xmppStream:(XMPPStream *)sender willSecureWithSettings:(NSMutableDictionary *)settings
+- (void)transport:(XMPPSocketTransport *)sender willSecureWithSettings:(NSMutableDictionary *)settings
 {
 	NSLog(@"---------- xmppStream:willSecureWithSettings: ----------");
 	
@@ -121,10 +123,10 @@
 		
 		NSString *expectedCertName = nil;
 		
-		NSString *serverDomain = xmppStream.hostName;
-		NSString *virtualDomain = [xmppStream.myJID domain];
+		NSString *serverDomain = transport.host;
+		NSString *virtualDomain = [transport.myJID domain];
 		
-		if ([serverDomain isEqualToString:@"talk.google.com"])
+		if ([serverDomain hasPrefix:@"talk"] && [serverDomain hasSuffix:@"google.com"])
 		{
 			if ([virtualDomain isEqualToString:@"gmail.com"])
 			{
