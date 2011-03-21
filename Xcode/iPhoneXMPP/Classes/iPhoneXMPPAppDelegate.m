@@ -3,6 +3,7 @@
 
 #import "XMPP.h"
 #import "XMPPRosterCoreDataStorage.h"
+#import "XMPPSocketTransport.h"
 
 #import <CFNetwork/CFNetwork.h>
 
@@ -17,7 +18,9 @@
 
 - (void)applicationDidFinishLaunching:(UIApplication *)application
 {
-	xmppStream = [[XMPPStream alloc] init];
+    // Replace me with the proper host name and port
+    //transport = [[XMPPSocketTransport alloc] initWithHost:@"talk.google.com" port:5222];
+	xmppStream = [[XMPPStream alloc] initWithTransport:transport];
 	xmppRosterStorage = [[XMPPRosterCoreDataStorage alloc] init];
 	xmppRoster = [[XMPPRoster alloc] initWithStream:xmppStream rosterStorage:xmppRosterStorage];
 	
@@ -26,14 +29,9 @@
 	
 	[xmppRoster setAutoRoster:YES];
 	
-	// Replace me with the proper domain and port.
-	// The example below is setup for a typical google talk account.
-//	[xmppStream setHostName:@"talk.google.com"];
-//	[xmppStream setHostPort:5222];
-	
 	// Replace me with the proper JID and password
-//	[xmppStream setMyJID:[XMPPJID jidWithString:@"user@gmail.com/iPhoneTest"]];
-//	password = @"password";
+	//[xmppStream setMyJID:[XMPPJID jidWithString:@"user@gmail.com/iPhoneTest"]];
+	//password = @"password";
 	
 	// You may need to alter these settings depending on the server you're connecting to
 	allowSelfSignedCertificates = NO;

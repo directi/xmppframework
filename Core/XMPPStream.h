@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #import "MulticastDelegate.h"
+#import "XMPPTransportProtocol.h"
 
 #if TARGET_OS_IPHONE
   #import "DDXML.h"
@@ -74,12 +75,13 @@ enum XMPPStreamErrorCode
 typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 
 
-@interface XMPPStream : NSObject
+@interface XMPPStream : NSObject <XMPPTransportDelegate>
 {
 	MulticastDelegate <XMPPStreamDelegate> *multicastDelegate;
 	
 	int state;
 	AsyncSocket *asyncSocket;
+    id<XMPPTransportProtocol> transport;
 	
 	UInt64 numberOfBytesSent;
 	UInt64 numberOfBytesReceived;
@@ -113,20 +115,8 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 	NSString *synchronousUUID;
 }
 
-/**
- * Standard XMPP initialization.
- * The stream is a standard client to server connection.
- * 
- * P2P streams using XEP-0174 are also supported.
- * See the P2P section below.
-**/
-- (id)init;
-
-/**
- * Peer to Peer XMPP initialization.
- * The stream is a direct client to client connection as outlined in XEP-0174.
-**/
-- (id)initP2PFrom:(XMPPJID *)myJID;
+- (id)initWithTransport:(id<XMPPTransportProtocol>)transport;
+- (id)initWithP2PTransport:(id<XMPPTransportProtocol>)transport;
 
 /**
  * XMPPStream uses a multicast delegate.
@@ -211,7 +201,7 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 /**
  * Only used in P2P streams.
 **/
-@property (nonatomic, readonly) XMPPJID *remoteJID;
+@property (nonatomic, readwrite, copy) XMPPJID *remoteJID;
 
 /**
  * Many routers will teardown a socket mapping if there is no activity on the socket.
@@ -298,24 +288,6 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
  * Note: Such servers generally use port 5223 for this, which you will need to set.
 **/
 - (BOOL)oldSchoolSecureConnect:(NSError **)errPtr;
-
-/**
- * Starts a P2P connection to the given user and given address.
- * This method only works with XMPPStream objects created using the initP2P method.
- * 
- * The given address is specified as a sockaddr structure wrapped in a NSData object.
- * For example, a NSData object returned from NSNetservice's addresses method.
-**/
-- (BOOL)connectTo:(XMPPJID *)remoteJID withAddress:(NSData *)remoteAddr error:(NSError **)errPtr;
-
-/**
- * Starts a P2P connection with the given accepted socket.
- * This method only works with XMPPStream objects created using the initP2P method.
- * 
- * The given socket should be a socket that has already been accepted.
- * The remoteJID will be extracted from the opening stream negotiation.
-**/
-- (BOOL)connectP2PWithSocket:(AsyncSocket *)acceptedSocket error:(NSError **)errPtr;
 
 /**
  * Disconnects from the remote host by closing the underlying TCP socket connection.

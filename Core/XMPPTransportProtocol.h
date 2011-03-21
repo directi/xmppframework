@@ -7,25 +7,48 @@
 //
 
 #import <Foundation/Foundation.h>
+#if TARGET_OS_IPHONE
+    #import "DDXML.h"
+#endif
+
+@class XMPPJID;
 
 @protocol XMPPTransportProtocol
 
-- (void)setDelegate:(id)delegate;
-- (BOOL)connect:(NSError *)errPtr;
-- (BOOL)disconnect;
+- (void)addDelegate:(id)delegate;
+- (void)removeDelegate:(id)delegate;
+- (void)setMyJID:(XMPPJID *)jid;
+- (BOOL)connect:(NSError **)errPtr;
+- (void)disconnect;
+- (void)restartStream;
+- (float)serverXmppStreamVersionNumber;
 - (BOOL)sendStanza:(NSXMLElement *)stanza;
+- (BOOL)sendStanzaWithString:(NSString *)string;
 
 @optional
-- (BOOL)secure;
+- (void)secure;
+- (BOOL)isSecure;
+
+// P2P
+- (XMPPJID *)remoteJID;
+- (void)setRemoteJID:(XMPPJID *)jid;
+- (BOOL)isP2PRecipient;
+
 @end
 
 
 @protocol XMPPTransportDelegate
-- (void)transportDidConnect:(id <XMPPTransportProtocol>)transport;
-- (void)transportDidDisconnect:(id <XMPPTransportProtocol>)transport;
-- (void)transport:(id <XMPPTransportProtocol>)transport didReceiveStanza:(NSXMLElement *)stanza;
-- (void)transport:(id <XMPPTransportProtocol>)transport didReceiveError:(id)error;
 
 @optional
+- (void)transportWillConnect:(id <XMPPTransportProtocol>)transport;
+- (void)transportDidStartNegotiation:(id <XMPPTransportProtocol>)transport;
+- (void)transportDidConnect:(id <XMPPTransportProtocol>)transport;
+- (void)transportWillDisconnect:(id <XMPPTransportProtocol>)transport;
+- (void)transportWillDisconnect:(id<XMPPTransportProtocol>)transport withError:(NSError *)err;
+- (void)transportDidDisconnect:(id <XMPPTransportProtocol>)transport;
+- (void)transport:(id <XMPPTransportProtocol>)transport willSecureWithSettings:(NSDictionary *)settings;
+- (void)transport:(id <XMPPTransportProtocol>)transport didReceiveStanza:(NSXMLElement *)stanza;
+- (void)transport:(id <XMPPTransportProtocol>)transport didReceiveError:(id)error;
 - (void)transportDidSecure:(id <XMPPTransportProtocol>)transport;
+
 @end

@@ -1,13 +1,14 @@
 #import <UIKit/UIKit.h>
 #import <CoreData/CoreData.h>
+#import "XMPPSocketTransport.h"
 
 @class XMPPStream;
 @class XMPPRoster;
 @class XMPPRosterCoreDataStorage;
 
-
 @interface iPhoneXMPPAppDelegate : NSObject <UIApplicationDelegate>
 {
+    XMPPSocketTransport *transport;
 	XMPPStream *xmppStream;
 	XMPPRoster *xmppRoster;
 	XMPPRosterCoreDataStorage *xmppRosterStorage;
