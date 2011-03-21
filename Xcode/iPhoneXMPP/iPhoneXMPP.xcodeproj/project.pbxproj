@@ -40,7 +40,6 @@
 		DC84BBDF12440A8E0055A459 /* XMPPModule.m in Sources */ = {isa = PBXBuildFile; fileRef = DC84BBD212440A8E0055A459 /* XMPPModule.m */; };
 		DC84BBE012440A8E0055A459 /* XMPPParser.m in Sources */ = {isa = PBXBuildFile; fileRef = DC84BBD412440A8E0055A459 /* XMPPParser.m */; };
 		DC84BBE112440A8E0055A459 /* XMPPPresence.m in Sources */ = {isa = PBXBuildFile; fileRef = DC84BBD612440A8E0055A459 /* XMPPPresence.m */; };
-		DC84BBE212440A8E0055A459 /* XMPPReconnect.m in Sources */ = {isa = PBXBuildFile; fileRef = DC84BBD812440A8E0055A459 /* XMPPReconnect.m */; };
 		DC84BBE312440A8E0055A459 /* XMPPStream.m in Sources */ = {isa = PBXBuildFile; fileRef = DC84BBDA12440A8E0055A459 /* XMPPStream.m */; };
 		DC84BC0012440AF40055A459 /* XMPPResourceCoreDataStorage.m in Sources */ = {isa = PBXBuildFile; fileRef = DC84BBF612440AF40055A459 /* XMPPResourceCoreDataStorage.m */; };
 		DC84BC0112440AF40055A459 /* XMPPRoster.m in Sources */ = {isa = PBXBuildFile; fileRef = DC84BBF812440AF40055A459 /* XMPPRoster.m */; };
@@ -118,8 +117,6 @@
 		DC84BBD412440A8E0055A459 /* XMPPParser.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = XMPPParser.m; path = ../../Core/XMPPParser.m; sourceTree = SOURCE_ROOT; };
 		DC84BBD512440A8E0055A459 /* XMPPPresence.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = XMPPPresence.h; path = ../../Core/XMPPPresence.h; sourceTree = SOURCE_ROOT; };
 		DC84BBD612440A8E0055A459 /* XMPPPresence.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = XMPPPresence.m; path = ../../Core/XMPPPresence.m; sourceTree = SOURCE_ROOT; };
-		DC84BBD712440A8E0055A459 /* XMPPReconnect.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = XMPPReconnect.h; path = ../../Core/XMPPReconnect.h; sourceTree = SOURCE_ROOT; };
-		DC84BBD812440A8E0055A459 /* XMPPReconnect.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = XMPPReconnect.m; path = ../../Core/XMPPReconnect.m; sourceTree = SOURCE_ROOT; };
 		DC84BBD912440A8E0055A459 /* XMPPStream.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = XMPPStream.h; path = ../../Core/XMPPStream.h; sourceTree = SOURCE_ROOT; };
 		DC84BBDA12440A8E0055A459 /* XMPPStream.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = XMPPStream.m; path = ../../Core/XMPPStream.m; sourceTree = SOURCE_ROOT; };
 		DC84BBF412440AF40055A459 /* XMPPResource.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = XMPPResource.h; path = ../../Roster/XMPPResource.h; sourceTree = SOURCE_ROOT; };
@@ -334,8 +331,6 @@
 				DC84BBD012440A8E0055A459 /* XMPPMessage.m */,
 				DC84BBD512440A8E0055A459 /* XMPPPresence.h */,
 				DC84BBD612440A8E0055A459 /* XMPPPresence.m */,
-				DC84BBD712440A8E0055A459 /* XMPPReconnect.h */,
-				DC84BBD812440A8E0055A459 /* XMPPReconnect.m */,
 				DC84BBD112440A8E0055A459 /* XMPPModule.h */,
 				DC84BBD212440A8E0055A459 /* XMPPModule.m */,
 				54FDBEC01330D8460099D4DB /* XMPPTransportProtocol.h */,
@@ -484,7 +479,6 @@
 				DC84BBDF12440A8E0055A459 /* XMPPModule.m in Sources */,
 				DC84BBE012440A8E0055A459 /* XMPPParser.m in Sources */,
 				DC84BBE112440A8E0055A459 /* XMPPPresence.m in Sources */,
-				DC84BBE212440A8E0055A459 /* XMPPReconnect.m in Sources */,
 				DC84BBE312440A8E0055A459 /* XMPPStream.m in Sources */,
 				DC84BC0012440AF40055A459 /* XMPPResourceCoreDataStorage.m in Sources */,
 				DC84BC0112440AF40055A459 /* XMPPRoster.m in Sources */,
