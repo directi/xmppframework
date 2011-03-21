@@ -19,8 +19,6 @@
 // Define the various states we'll use to track our progress
 enum {
 	STATE_DISCONNECTED,
-	STATE_RESOLVING_SRV,
-	STATE_CONNECTING,
 	STATE_OPENING,
 	STATE_NEGOTIATING,
 	STATE_STARTTLS,
@@ -32,35 +30,6 @@ enum {
 	STATE_START_SESSION,
 	STATE_CONNECTED,
 };
-
-// Define the debugging state
-#define DEBUG_SEND      YES
-#define DEBUG_RECV_PRE  NO  // Prints data before going to xmpp parser
-#define DEBUG_RECV_POST YES   // Prints data as it comes out of xmpp parser
-
-#define DDLogSend(format, ...)     do{ if(DEBUG_SEND)      NSLog((format), ##__VA_ARGS__); }while(0)
-#define DDLogRecvPre(format, ...)  do{ if(DEBUG_RECV_PRE)  NSLog((format), ##__VA_ARGS__); }while(0)
-#define DDLogRecvPost(format, ...) do{ if(DEBUG_RECV_POST) NSLog((format), ##__VA_ARGS__); }while(0)
-
-// Define the various timeouts (in seconds) for retreiving various parts of the XML stream
-#define TIMEOUT_WRITE         10
-#define TIMEOUT_READ_START    10
-#define TIMEOUT_READ_STREAM   -1
-
-// Define the various tags we'll use to differentiate what it is we're currently reading or writing
-#define TAG_WRITE_START        -100 // Must be outside UInt16 range
-#define TAG_WRITE_STREAM       -101 // Must be outside UInt16 range
-#define TAG_WRITE_SYNCHRONOUS  -102 // Must be outside UInt16 range
-
-#define TAG_READ_START       200
-#define TAG_READ_STREAM      201
-
-
-#if TARGET_OS_IPHONE
-  #define DEFAULT_KEEPALIVE_INTERVAL 120.0 // 2 Minutes
-#else
-  #define DEFAULT_KEEPALIVE_INTERVAL 300.0 // 5 Minutes
-#endif
 
 extern NSString *const XMPPStreamErrorDomain;
 
@@ -80,18 +49,9 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 	MulticastDelegate <XMPPStreamDelegate> *multicastDelegate;
 	
 	int state;
-	AsyncSocket *asyncSocket;
     id<XMPPTransportProtocol> transport;
 	
-	UInt64 numberOfBytesSent;
-	UInt64 numberOfBytesReceived;
-	
-	XMPPParser *parser;
-	
 	Byte flags;
-	
-	NSString *hostName;
-	UInt16 hostPort;
 	
 	NSString *tempPassword;
 	
@@ -100,19 +60,10 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 	
 	NSXMLElement *rootElement;
 	
-	NSTimeInterval keepAliveInterval;
-	NSTimer *keepAliveTimer;
-	
 	id registeredModules;
 	NSMutableDictionary *autoDelegateDict;
 	
 	id userTag;
-	
-	RFSRVResolver *srvResolver;
-	NSArray *srvResults;
-	NSUInteger srvResultsIndex;
-	
-	NSString *synchronousUUID;
 }
 
 - (id)initWithTransport:(id<XMPPTransportProtocol>)transport;
@@ -132,39 +83,6 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark Properties
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/**
- * The server's hostname that should be used to make the TCP connection.
- * This may be a domain name (e.g. "deusty.com") or an IP address (e.g. "70.85.193.226").
- * 
- * Note that this may be different from the virtual xmpp hostname.
- * Just as HTTP servers can support mulitple virtual hosts from a single server, so too can xmpp servers.
- * A prime example is google via google apps.
- * 
- * For example, say you own the domain "mydomain.com".
- * If you go to mydomain.com in a web browser,
- * you are directed to your apache server running on your webserver somewhere in the cloud.
- * But you use google apps for your email and xmpp needs.
- * So if somebody sends you an email, it actually goes to google's servers, where you later access it from.
- * Similarly, you connect to google's servers to sign into xmpp.
- * 
- * In the example above, your hostname is "talk.google.com" and your JID is "me@mydomain.com".
- * 
- * This hostName property is optional.
- * If you do not set the hostName, then the framework will follow the xmpp specification using jid's domain.
- * That is, it first do an SRV lookup (as specified in the xmpp RFC).
- * If that fails, it will fall back to simply attempting to connect to the jid's domain.
-**/
-@property (nonatomic, readwrite, copy) NSString *hostName;
-
-/**
- * The port the xmpp server is running on.
- * If you do not explicitly set the port, the default port will be used.
- * If you set the port to zero, the default port will be used.
- * 
- * The default port is 5222.
-**/
-@property (nonatomic, readwrite, assign) UInt16 hostPort;
 
 /**
  * The JID of the user.
@@ -202,39 +120,6 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
  * Only used in P2P streams.
 **/
 @property (nonatomic, readwrite, copy) XMPPJID *remoteJID;
-
-/**
- * Many routers will teardown a socket mapping if there is no activity on the socket.
- * For this reason, the xmpp stream supports sending keep alive data.
- * This is simply whitespace, which is ignored by the xmpp protocol.
- * 
- * The default value is defined in DEFAULT_KEEPALIVE_INTERVAL.
- * 
- * To disable keepalive, set the interval to zero.
-**/
-@property (nonatomic, readwrite, assign) NSTimeInterval keepAliveInterval;
-
-/**
- * Returns the total number of bytes bytes sent/received by the xmpp stream.
- * 
- * By default this is the byte count since the xmpp stream object has been created.
- * If the stream has connected/disconnected/reconnected multiple times,
- * the count will be the summation of all connections.
- * 
- * The functionality may optionaly be changed to count only the current socket connection.
- * See the resetByteCountPerConnection property.
-**/
-@property (nonatomic, readonly) UInt64 numberOfBytesSent;
-@property (nonatomic, readonly) UInt64 numberOfBytesReceived;
-
-/**
- * Affects the funtionality of the byte counter.
- * 
- * The default value is NO.
- * 
- * If set to YES, the byte count will be reset just prior to a new connection (in the connect methods).
-**/
-@property (nonatomic, readwrite, assign) BOOL resetByteCountPerConnection;
 
 /**
  * Returns a list of all currently registered modules.
@@ -277,17 +162,6 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
  * If the hostName or myJID are not set, this method will return NO and set the error parameter.
 **/
 - (BOOL)connect:(NSError **)errPtr;
-
-/**
- * THIS IS DEPRECATED BY THE XMPP SPECIFICATION.
- * 
- * The xmpp specification outlines the proper use of SSL/TLS by negotiating
- * the startTLS upgrade within the stream negotiation.
- * This method exists for those ancient servers that still require the connection to be secured prematurely.
- * 
- * Note: Such servers generally use port 5223 for this, which you will need to set.
-**/
-- (BOOL)oldSchoolSecureConnect:(NSError **)errPtr;
 
 /**
  * Disconnects from the remote host by closing the underlying TCP socket connection.
@@ -461,28 +335,6 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
  * Even if you close the xmpp stream after this point, the OS will still do everything it can to send the data.
 **/
 - (void)sendElement:(NSXMLElement *)element andNotifyMe:(UInt16)tag;
-
-/**
- * Just like the sendElement: method above,
- * but this method does not return until after the element has been sent.
- * 
- * It is important to understand what this means.
- * It does NOT mean the server has received the element.
- * It only means the data has been queued for sending in the underlying OS socket buffer.
- * 
- * So at this point the OS will do everything in its capacity to send the data to the server,
- * which generally means the server will eventually receive the data.
- * Unless, of course, something horrible happens such as a network failure,
- * or a system crash, or the server crashes, etc.
- * 
- * Even if you close the xmpp stream after this point, the OS will still do everything it can to send the data.
- * 
- * This method should be used sparingly.
- * In other words, it should be used only when absolutely necessary.
- * For example, when the system is about to go to sleep,
- * or when your iOS app is about to be backgrounded, and you need to synchronously send an unavailable presence.
-**/
-- (BOOL)synchronouslySendElement:(NSXMLElement *)element;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark Utilities
