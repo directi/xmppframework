@@ -1165,7 +1165,7 @@ enum XMPPStreamFlags
 	{
 		// We are successfully authenticated (via sasl:digest-md5)
 		[self setIsAuthenticated:YES];
-		
+		state = STATE_NEGOTIATING;
 		// Now we start our negotiation over again...
 		[self restartStream];
 	}
@@ -1175,7 +1175,6 @@ enum XMPPStreamFlags
 		
 		// Revert back to connected state (from authenticating state)
 		state = STATE_CONNECTED;
-		
 		[multicastDelegate xmppStream:self didNotAuthenticate:response];
 	}
 }
@@ -1334,13 +1333,13 @@ enum XMPPStreamFlags
 - (void)transport:(id<XMPPTransportProtocol>)sender didReceiveStanza:(NSXMLElement *)element
 {
 	NSString *elementName = [element name];
-	
+
 	if([elementName isEqualToString:@"stream:error"] || [elementName isEqualToString:@"error"])
 	{
 		[multicastDelegate xmppStream:self didReceiveError:element];
 		return;
 	}
-	
+
 	if(state == STATE_NEGOTIATING)
 	{
 		// We've just read in the stream features
