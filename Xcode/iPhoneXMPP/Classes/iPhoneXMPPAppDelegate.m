@@ -4,6 +4,7 @@
 #import "XMPP.h"
 #import "XMPPRosterCoreDataStorage.h"
 #import "XMPPSocketTransport.h"
+#import "BoshTransport.h"
 
 #import <CFNetwork/CFNetwork.h>
 
@@ -18,33 +19,37 @@
 
 - (void)applicationDidFinishLaunching:(UIApplication *)application
 {
+	transport = [[BoshTransport alloc] initWithUrl:@"http://localhost:5280/http-bind" forHost:@"directi.com"];
+    //[transport setMyJID:[XMPPJID jidWithString:@"satyam.s@directi.com"]];
+    
+    //173.255.205.197
     // Replace me with the proper host name and port
-    //transport = [[XMPPSocketTransport alloc] initWithHost:@"talk.google.com" port:5222];
-    transport = [[XMPPSocketTransport alloc] init];
-	xmppStream = [[XMPPStream alloc] initWithTransport:transport];
-	xmppRosterStorage = [[XMPPRosterCoreDataStorage alloc] init];
-	xmppRoster = [[XMPPRoster alloc] initWithStream:xmppStream rosterStorage:xmppRosterStorage];
-	
+    //transport = [[XMPPSocketTransport alloc] initWithHost:@"internal.chat.pw" port:5222];
+    //transport = [[XMPPSocketTransport alloc] init];
+    xmppStream = [[XMPPStream alloc] initWithTransport:transport];
+    xmppRosterStorage = [[XMPPRosterCoreDataStorage alloc] init];
+    xmppRoster = [[XMPPRoster alloc] initWithStream:xmppStream rosterStorage:xmppRosterStorage];
+    
     [transport addDelegate:self];
-	[xmppStream addDelegate:self];
-	[xmppRoster addDelegate:self];
-	
-	[xmppRoster setAutoRoster:YES];
-	
-	// Replace me with the proper JID and password
-	//[xmppStream setMyJID:[XMPPJID jidWithString:@"user@gmail.com/iPhoneTest"]];
-	//password = @"password";
-	
-	// You may need to alter these settings depending on the server you're connecting to
+    [xmppStream addDelegate:self];
+    [xmppRoster addDelegate:self];
+    
+    [xmppRoster setAutoRoster:YES];
+    
+    // Replace me with the proper JID and password
+    [xmppStream setMyJID:[XMPPJID jidWithString:@"satyam.s@directi.com/iPhoneTest"]];
+    password = @"shekhar123";
+    
+    // You may need to alter these settings depending on the server you're connecting to
 	allowSelfSignedCertificates = NO;
 	allowSSLHostNameMismatch = NO;
 	
 	// Uncomment me when the proper information has been entered above.
-//	NSError *error = nil;
-//	if (![xmppStream connect:&error])
-//	{
-//		NSLog(@"Error connecting: %@", error);
-//	}
+	NSError *error = nil;
+	if (![xmppStream connect:&error])
+	{
+		NSLog(@"Error connecting: %@", error);
+	}
 	
 	[window addSubview:[navigationController view]];
 	[window makeKeyAndVisible];
@@ -123,7 +128,7 @@
 		
 		NSString *expectedCertName = nil;
 		
-		NSString *serverDomain = transport.host;
+		NSString *serverDomain = @"saf";
 		NSString *virtualDomain = [transport.myJID domain];
 		
 		if ([serverDomain hasPrefix:@"talk"] && [serverDomain hasSuffix:@"google.com"])

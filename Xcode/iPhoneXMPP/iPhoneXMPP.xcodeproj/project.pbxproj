@@ -17,7 +17,6 @@
 		28AD73600D9D9599002E5188 /* MainWindow.xib in Resources */ = {isa = PBXBuildFile; fileRef = 28AD735F0D9D9599002E5188 /* MainWindow.xib */; };
 		28C286E10D94DF7D0034E888 /* RootViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 28C286E00D94DF7D0034E888 /* RootViewController.m */; };
 		28F335F11007B36200424DE2 /* RootViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 28F335F01007B36200424DE2 /* RootViewController.xib */; };
-		4A97CB60133201C6009028BE /* BoshTransport.m in Sources */ = {isa = PBXBuildFile; fileRef = 4A97CB5F133201C6009028BE /* BoshTransport.m */; };
 		4A97CB751332094B009028BE /* ASIAuthenticationDialog.m in Sources */ = {isa = PBXBuildFile; fileRef = 4A97CB621332094B009028BE /* ASIAuthenticationDialog.m */; };
 		4A97CB761332094B009028BE /* ASIDataCompressor.m in Sources */ = {isa = PBXBuildFile; fileRef = 4A97CB651332094B009028BE /* ASIDataCompressor.m */; };
 		4A97CB771332094B009028BE /* ASIDataDecompressor.m in Sources */ = {isa = PBXBuildFile; fileRef = 4A97CB671332094B009028BE /* ASIDataDecompressor.m */; };
@@ -29,6 +28,8 @@
 		4A97CB7F1332096A009028BE /* Reachability.m in Sources */ = {isa = PBXBuildFile; fileRef = 4A97CB7E1332096A009028BE /* Reachability.m */; };
 		4A97CBDB1332314C009028BE /* libz.1.2.3.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4A97CBDA1332314C009028BE /* libz.1.2.3.dylib */; };
 		4A97CBDF13323191009028BE /* MobileCoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4A97CBDE13323191009028BE /* MobileCoreServices.framework */; };
+		4AD0F4E3133C82F600F442D9 /* BoshTransport.m in Sources */ = {isa = PBXBuildFile; fileRef = 4AD0F4E2133C82F600F442D9 /* BoshTransport.m */; };
+		4AD0F6511340F88800F442D9 /* BoshWindowManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 4AD0F6501340F88800F442D9 /* BoshWindowManager.m */; };
 		54FDBEC41330DA030099D4DB /* XMPPSocketTransport.m in Sources */ = {isa = PBXBuildFile; fileRef = 54FDBEC31330DA030099D4DB /* XMPPSocketTransport.m */; };
 		DC1F97E21152CA2D00138A8F /* libxml2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = DC1F97E11152CA2D00138A8F /* libxml2.dylib */; };
 		DC1F97E81152CA4E00138A8F /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DC1F97E71152CA4E00138A8F /* CFNetwork.framework */; };
@@ -79,8 +80,6 @@
 		28C286E00D94DF7D0034E888 /* RootViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RootViewController.m; sourceTree = "<group>"; };
 		28F335F01007B36200424DE2 /* RootViewController.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = RootViewController.xib; sourceTree = "<group>"; };
 		29B97316FDCFA39411CA2CEA /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
-		4A97CB5E133201C6009028BE /* BoshTransport.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BoshTransport.h; sourceTree = "<group>"; };
-		4A97CB5F133201C6009028BE /* BoshTransport.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BoshTransport.m; sourceTree = "<group>"; };
 		4A97CB611332094B009028BE /* ASIAuthenticationDialog.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ASIAuthenticationDialog.h; path = "../../../asi-http-request/Classes/ASIAuthenticationDialog.h"; sourceTree = SOURCE_ROOT; };
 		4A97CB621332094B009028BE /* ASIAuthenticationDialog.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = ASIAuthenticationDialog.m; path = "../../../asi-http-request/Classes/ASIAuthenticationDialog.m"; sourceTree = SOURCE_ROOT; };
 		4A97CB631332094B009028BE /* ASICacheDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ASICacheDelegate.h; path = "../../../asi-http-request/Classes/ASICacheDelegate.h"; sourceTree = SOURCE_ROOT; };
@@ -105,6 +104,10 @@
 		4A97CB7E1332096A009028BE /* Reachability.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = Reachability.m; path = "../../../asi-http-request/External/Reachability/Reachability.m"; sourceTree = SOURCE_ROOT; };
 		4A97CBDA1332314C009028BE /* libz.1.2.3.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.1.2.3.dylib; path = usr/lib/libz.1.2.3.dylib; sourceTree = SDKROOT; };
 		4A97CBDE13323191009028BE /* MobileCoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileCoreServices.framework; path = System/Library/Frameworks/MobileCoreServices.framework; sourceTree = SDKROOT; };
+		4AD0F4E1133C82F600F442D9 /* BoshTransport.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = BoshTransport.h; path = ../../Core/Transports/BoshTransport.h; sourceTree = SOURCE_ROOT; };
+		4AD0F4E2133C82F600F442D9 /* BoshTransport.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = BoshTransport.m; path = ../../Core/Transports/BoshTransport.m; sourceTree = SOURCE_ROOT; };
+		4AD0F64F1340F88800F442D9 /* BoshWindowManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = BoshWindowManager.h; path = ../../Core/Transports/BoshWindowManager.h; sourceTree = SOURCE_ROOT; };
+		4AD0F6501340F88800F442D9 /* BoshWindowManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = BoshWindowManager.m; path = ../../Core/Transports/BoshWindowManager.m; sourceTree = SOURCE_ROOT; };
 		54FDBEC01330D8460099D4DB /* XMPPTransportProtocol.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = XMPPTransportProtocol.h; path = ../../Core/XMPPTransportProtocol.h; sourceTree = "<group>"; };
 		54FDBEC21330DA030099D4DB /* XMPPSocketTransport.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = XMPPSocketTransport.h; path = ../../Core/Transports/XMPPSocketTransport.h; sourceTree = "<group>"; };
 		54FDBEC31330DA030099D4DB /* XMPPSocketTransport.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = XMPPSocketTransport.m; path = ../../Core/Transports/XMPPSocketTransport.m; sourceTree = "<group>"; };
@@ -296,10 +299,12 @@
 		54FDBEC51330DA0C0099D4DB /* Transports */ = {
 			isa = PBXGroup;
 			children = (
+				4AD0F64F1340F88800F442D9 /* BoshWindowManager.h */,
+				4AD0F6501340F88800F442D9 /* BoshWindowManager.m */,
+				4AD0F4E1133C82F600F442D9 /* BoshTransport.h */,
+				4AD0F4E2133C82F600F442D9 /* BoshTransport.m */,
 				54FDBEC21330DA030099D4DB /* XMPPSocketTransport.h */,
 				54FDBEC31330DA030099D4DB /* XMPPSocketTransport.m */,
-				4A97CB5E133201C6009028BE /* BoshTransport.h */,
-				4A97CB5F133201C6009028BE /* BoshTransport.m */,
 			);
 			name = Transports;
 			sourceTree = "<group>";
@@ -562,7 +567,6 @@
 				0771B81D1315E9FB0018D5C6 /* XMPPRosterCoreDataStorage+shared.m in Sources */,
 				0771B81E1315E9FC0018D5C6 /* XMPPStreamCoreDataStorage.m in Sources */,
 				54FDBEC41330DA030099D4DB /* XMPPSocketTransport.m in Sources */,
-				4A97CB60133201C6009028BE /* BoshTransport.m in Sources */,
 				4A97CB751332094B009028BE /* ASIAuthenticationDialog.m in Sources */,
 				4A97CB761332094B009028BE /* ASIDataCompressor.m in Sources */,
 				4A97CB771332094B009028BE /* ASIDataDecompressor.m in Sources */,
@@ -572,6 +576,8 @@
 				4A97CB7B1332094B009028BE /* ASIInputStream.m in Sources */,
 				4A97CB7C1332094B009028BE /* ASINetworkQueue.m in Sources */,
 				4A97CB7F1332096A009028BE /* Reachability.m in Sources */,
+				4AD0F4E3133C82F600F442D9 /* BoshTransport.m in Sources */,
+				4AD0F6511340F88800F442D9 /* BoshWindowManager.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

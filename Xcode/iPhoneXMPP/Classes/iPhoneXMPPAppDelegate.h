@@ -8,7 +8,7 @@
 
 @interface iPhoneXMPPAppDelegate : NSObject <UIApplicationDelegate>
 {
-    XMPPSocketTransport *transport;
+    id<XMPPTransportProtocol> transport;
 	XMPPStream *xmppStream;
 	XMPPRoster *xmppRoster;
 	XMPPRosterCoreDataStorage *xmppRosterStorage;
