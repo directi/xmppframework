@@ -13,44 +13,20 @@
 #import "ASIHTTPRequest.h"
 #import "BoshWindowManager.h"
 
-typedef enum  {
-	DISCONNECTED = 0,
-	CONNECTING = 1,
-	CONNECTED = 2
-} BoshConnectionState;
-
 @interface BoshTransport : NSObject <XMPPTransportProtocol, BoshWindowProtocol > {
 	NSString *boshVersion;
-	NSNumber *wait;
-	NSNumber *hold;
-	NSString *from;
 	NSNumber *ack;
 
-	NSString *sid;
-	NSString *lang;
 	NSString *content;
-	XMPPJID *myJID;
-	NSNumber *polling;
-	NSNumber *inactivity;
-	NSNumber *requests;
-	NSString *to;
-       
-        NSString *STREAM_NS;
-        NSString *CLIENT_NS;
-        NSString *STANZA_NS;
-        NSString *SASL_NS;
-        NSString *BIND_NS;
-        NSString *SESSION_NS;
-        NSString *BODY_NS;
-        NSString *XMPP_NS;
+    NSString *STREAM_NS;
+    NSString *BODY_NS;
+    NSString *XMPP_NS;
         
-        u_int32_t nextRidToSend;
+    long long nextRidToSend;
 	
 	NSMutableArray *pendingXMPPStanzas;
 	BoshWindowManager *boshWindowManager;
         
-	BOOL secure;
-	NSString *boshUrl;
 	MulticastDelegate <XMPPTransportDelegate> *multicastDelegate;
 }
 
@@ -58,18 +34,15 @@ typedef enum  {
 @property(retain) NSNumber *wait;
 @property(retain) NSNumber *hold;
 @property(copy) NSString *lang;
-@property(copy) NSString *content;
 @property(copy) NSString *host;
 @property(readonly) NSNumber *inactivity;
 @property(readonly) BOOL secure;
-@property(readonly) NSString *authid;
-@property(readonly) NSString *sid;
 @property(readonly) NSNumber *requests;
+@property(copy) NSString *authid;
+@property(copy) NSString *sid;
+@property(copy) NSString *url;
 
 /* init Methods */
-#pragma mark -
-#pragma mark init Methods
-
 - (id)initWithUrl:(NSString *)url forHost:(NSString *)host;
 - (id)initWithUrl:(NSString *)url forHost:(NSString *)host withDelegate:(id<XMPPTransportDelegate>)delegate;
 
@@ -78,9 +51,6 @@ typedef enum  {
 - (void)requestFailed:(ASIHTTPRequest *)request;
 
 /* Protocol Methods */
-#pragma mark -
-#pragma mark Protocol Methods
-
 - (void)addDelegate:(id)delegate;
 - (void)removeDelegate:(id)delegate;
 - (XMPPJID *)myJID;

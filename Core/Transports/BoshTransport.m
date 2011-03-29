@@ -9,31 +9,21 @@
 #import "BoshTransport.h"
 #import "DDXML.h"
 #import "NSXMLElementAdditions.h"
-#import "MulticastDelegate.h"
-#import "ASIHTTPRequest.h"
-#import "BoshWindowManager.h"
-
-typedef enum {
-    ATTRIBUTE_TYPE,
-    NAMESPACE_TYPE
-} NODE_TYPE;
 
 #pragma mark -
 #pragma mark Private Accessor Methods
 @interface BoshTransport()
 - (void)setInactivity:(NSString *)givenInactivity;
 - (void)setSecure:(NSString *)isSecure;
-- (void)setAuthid:(NSString *)givenAuthid;
-- (void)setSid:(NSString *)newSID;
 - (void)setRequests:(NSString *)maxRequests;
-- (NSNumber *)numberFromString:(NSString *)stringNumber;
 @end
 
 #pragma mark Private utilities
 @interface BoshTransport()
-- (u_int32_t) generateRid;	
+- (long long) generateRid;	
 - (NSArray *) convertToStrings:(NSArray *)array;
 - (SEL)setterForProperty:(NSString *)property;
+- (NSNumber *)numberFromString:(NSString *)stringNumber;
 @end
 
 #pragma mark http
@@ -47,7 +37,7 @@ typedef enum {
 
 #pragma mark xml
 @interface BoshTransport()
-- (u_int32_t)getRidInRequest:(NSXMLElement *)body;
+- (long long)getRidInRequest:(NSXMLElement *)body;
 - (NSXMLElement *) newRequestWithPayload:(NSArray *)payload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces;
 - (NSArray *) createAttributeArrayFromDictionary:(NSDictionary *)attributes;
 - (NSArray *) createNamespaceArrayFromDictionary:(NSDictionary *)namespacesDictionary;
@@ -58,17 +48,16 @@ typedef enum {
 
 @implementation BoshTransport
 
-@synthesize wait;
-@synthesize hold;
-@synthesize lang;
-//@synthesize content;
-@synthesize host=to;
-@synthesize myJID;
-
+@synthesize wait = wait_;
+@synthesize hold = hold_;
+@synthesize lang = lang_;
+@synthesize host = host_;
+@synthesize myJID = myJID_;
+@synthesize sid = sid_;
+@synthesize url = url_;
 @synthesize inactivity;
 @synthesize secure;
 @synthesize authid;
-@synthesize sid;
 @synthesize requests;
 
 #pragma mark -
@@ -94,19 +83,6 @@ typedef enum {
     else secure = NO;
 }
 
-- (void)setAuthid:(NSString *)givenAuthid
-{
-    [authid autorelease];
-    authid = [givenAuthid copy];
-}
-
-- (void)setSid:(NSString *)newSID
-{
-    [sid autorelease];
-    sid = [newSID copy];
-}
-
-
 #pragma mark -
 #pragma mark init
 
@@ -121,10 +97,10 @@ typedef enum {
     if(self)
     {		
         boshVersion = @"1.6";
-        lang = @"en";
+        lang_ = @"en";
         content = [NSString stringWithFormat:@"text/xml; charset=utf-8"];
-        wait = [[NSNumber alloc] initWithDouble:60.0];
-        hold = [[NSNumber alloc] initWithInt:1];
+        wait_ = [[NSNumber alloc] initWithDouble:60.0];
+        hold_ = [[NSNumber alloc] initWithInt:1];
         ack = [[NSNumber alloc] initWithInt:1];
 
         nextRidToSend = [self generateRid];
@@ -133,21 +109,15 @@ typedef enum {
         if( delegate != nil ) [multicastDelegate addDelegate:delegate];
 
         STREAM_NS = @"http://etherx.jabber.org/streams";
-        CLIENT_NS = @"jabber:client";
-        STANZA_NS = @"urn:ietf:params:xml:ns:xmpp-stanzas";
-        SASL_NS = @"urn:ietf:params:xml:ns:xmpp-sasl";
-        BIND_NS = @"urn:ietf:params:xml:ns:xmpp-bind";
-        SESSION_NS = @"urn:ietf:params:xml:ns:xmpp-session";
         BODY_NS = @"http://jabber.org/protocol/httpbind";
         XMPP_NS = @"urn:xmpp:xbosh";
 		
-        sid = nil;
-        polling = [[NSNumber alloc] initWithInt:0];
+        sid_ = nil;
         inactivity = [[NSNumber alloc] initWithInt:0];
         requests = [[NSNumber alloc] initWithInt:0];
-        boshUrl = url;
-        to = host;
-        myJID = nil;
+        url_ = url;
+        host_ = host;
+        myJID_ = nil;
 		
 		/* Keeping a random capacity right now */
 		pendingXMPPStanzas = [[NSMutableArray alloc] initWithCapacity:25];
@@ -165,15 +135,15 @@ typedef enum {
 
 - (BOOL)connect:(NSError **)error
 {
-    NSLog(@"BOSH: Connecting to %@ with jid = %@", to, [myJID bare]);
+    NSLog(@"BOSH: Connecting to %@ with jid = %@", self.host, [self.myJID bare]);
 	
-    if(!to)
+    if(!self.host)
     {
         NSLog(@"BOSH: Called Connect with specifying the host");
         return NO;
     }
 	
-    if(!myJID)
+    if(!self.myJID)
     {
         NSLog(@"BOSH: Called connect without setting the jid");
         return NO;
@@ -182,33 +152,34 @@ typedef enum {
     [multicastDelegate transportWillConnect:self];
     
     NSArray *keys = [NSArray arrayWithObjects:@"content", @"hold", @"to", @"ver", @"wait", @"ack", @"xml:lang", @"from", @"secure", nil];
-    NSArray *objects = [NSArray arrayWithObjects:content, hold, to, boshVersion, wait, ack, lang, [myJID bare], @"false", nil];
+    NSArray *objects = [NSArray arrayWithObjects:content, self.hold, self.host, boshVersion, self.wait, ack, self.lang, [self.myJID bare], @"false", nil];
     NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjects:[self convertToStrings:objects] forKeys:keys];
     NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: XMPP_NS, @"xmpp", nil];
     
-    NSXMLElement *httpRequest = [self newRequestWithPayload:nil attributes:attr namespaces:ns];
-	    
-    [self startSessionWithRequest:httpRequest];
-    
+    NSXMLElement *requestPayload = [self newRequestWithPayload:nil attributes:attr namespaces:ns];
+    [self sendRequestWithBody:requestPayload responseHandler:@selector(sessionResponseHandler:) errorHandler:nil];
+    [requestPayload release];
     return YES;
 }
 
 - (void)restartStream
 {
     NSLog(@"Bosh: Will Restart Stream");
-    NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: lang, @"xml:lang", @"true", @"xmpp:restart", nil];
+    NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: self.lang, @"xml:lang", @"true", @"xmpp:restart", nil];
     NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: BODY_NS, @"", XMPP_NS, @"xmpp", nil];
     [self sendRequest:nil attributes:attr namespaces:ns];
 }
 
 - (void)disconnect
 {
-    return;
+    NSLog(@"Bosh: Will Terminate Session");
+    NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: self.lang, @"xml:lang", @"terminate", @"type", nil];
+    NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: BODY_NS, @"", nil];
+    [self sendRequest:nil attributes:attr namespaces:ns];
 }
 
 - (BOOL)sendStanza:(NSXMLElement *)stanza
 {
-    //NSLog(@"BOSH: Enqueuing payload = %@", stanza);
     [pendingXMPPStanzas addObject:stanza];
     [self trySendingStanzas];
     return TRUE;
@@ -216,7 +187,6 @@ typedef enum {
 
 - (BOOL)sendStanzaWithString:(NSString *)string
 {
-    //NSLog(@"BOSH: will send stanza as string = %@", string);
     NSXMLElement *payload = [self parseXMLString:string];
     return [self sendStanza:payload];
 }
@@ -233,16 +203,6 @@ typedef enum {
 
 #pragma mark -
 #pragma mark BOSH
-
-/*
-  Will be called either when the response arrives or when
-  the client queues his request in the request queue.
-
-  When the response arrives we call the following -
-     i) broadcastStanzas. (might internally call processRequestQueue)
-     ii) processRequestQueue (will do nothing if called internally by previous case)
-     iii) call sendRequestToHold.
-*/
 
 - (void)sendRequest:(NSArray *)bodyPayload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces
 {
@@ -263,7 +223,7 @@ typedef enum {
 
 - (void)sendRequestsToHold
 {
-    while( [boshWindowManager canLetServerHoldRequests:[hold unsignedIntValue]] ) 
+    while( [boshWindowManager canLetServerHoldRequests:[self.hold unsignedIntValue]] ) 
 		[self sendRequest:nil attributes:nil namespaces:nil];
 }
 
@@ -274,7 +234,7 @@ typedef enum {
 */ 
 - (void)broadcastStanzas:(NSXMLNode *)node
 {
-    while( node = [node nextNode] )
+    while( (node = [node nextNode]) )
     {
         if([node level] == 1)
         {
@@ -299,8 +259,6 @@ typedef enum {
         
         if([self respondsToSelector:setter]) 
             [self performSelector:setter withObject:attrValue];
-        //else 
-        //    NSLog(@"BOSH: NOTE: Selector For attribute= %@ Not Found", attrName);
     }
 
     /* Not doing anything with namespaces right now - because chirkut doesn't send it */
@@ -319,7 +277,7 @@ typedef enum {
 
 - (void)startSessionWithRequest:(NSXMLElement *)body
 {
-    [self sendRequestWithBody:body responseHandler:@selector(sessionResponseHandler:) errorHandler:nil];
+    
 }
 
 #pragma mark -
@@ -339,25 +297,18 @@ typedef enum {
     NSLog(@"BOSH: request Failed = %@", [request error]);
 }
 
-/*
-  Need to set timeouts on requests
-  and handle the requests that time out.
-  and resend the timed out requests.
-  We should also implement a recovery strategy.
-*/
 - (void)sendRequestWithBody:(NSXMLElement *)body responseHandler:(SEL)responseHandler errorHandler:(SEL)errorHandler
 {
-    NSURL *url = [NSURL URLWithString:boshUrl];
+    NSURL *url = [NSURL URLWithString:self.url];
     ASIHTTPRequest *request = [ASIHTTPRequest requestWithURL:url];
     [request setRequestMethod:@"POST"];
     [request setDelegate:self];
-    [request setTimeOutSeconds:[wait doubleValue]+4];
+    [request setTimeOutSeconds:[self.wait doubleValue]+4];
     
     if(body) [request appendPostData:[[body compactXMLString] dataUsingEncoding:NSUTF8StringEncoding]];
     if(responseHandler) [request setDidFinishSelector:responseHandler];
     if(errorHandler) [request setDidFailSelector:errorHandler];
     
-    //NSAssert(outstandingRequests < [requests unsignedIntValue] + 1, @"BOSH: Number of outstanding requests exceeded \"requests\"");
     [request startAsynchronous];
     
     NSLog(@"BOSH: Async Request Sent with data = %@", body);
@@ -367,9 +318,9 @@ typedef enum {
 #pragma mark -
 #pragma mark XML
 
-- (u_int32_t)getRidInRequest:(NSXMLElement *)body
+- (long long)getRidInRequest:(NSXMLElement *)body
 {
-    return [[[body attributeForName:@"rid"] stringValue] intValue];
+    return [[[body attributeForName:@"rid"] stringValue] longLongValue];
 }
 
 - (NSXMLElement *)newRequestWithPayload:(NSArray *)payload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces
@@ -378,7 +329,7 @@ typedef enum {
     namespaces = namespaces?namespaces:[NSMutableDictionary dictionaryWithCapacity:1];
 	
     /* Adding sid attribute on every outgoing request */
-    if( sid ) [attributes setValue:sid forKey:@"sid"];
+    if( self.sid ) [attributes setValue:self.sid forKey:@"sid"];
 	
     [attributes setValue:[NSString stringWithFormat:@"%d", nextRidToSend] forKey:@"rid"];
 	
@@ -394,7 +345,6 @@ typedef enum {
         for(NSXMLElement *child in payload)
             [boshRequest addChild:child];
 
-	//NSLog(@"BOSH: Rid = %d attached to request", nextRidToSend);
 	++nextRidToSend;
 	
     return boshRequest;
@@ -451,7 +401,7 @@ typedef enum {
 #pragma mark -
 #pragma mark utilities
 
-- (u_int32_t)generateRid
+- (long long)generateRid
 {
     return (arc4random() % 1000000000LL + 1000000001LL);
 }

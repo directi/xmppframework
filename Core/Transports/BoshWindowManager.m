@@ -25,7 +25,7 @@
 
 - (id) initWithRequest:(NSXMLElement *)request response:(NSXMLElement *)response
 {
-	if( self = [super init]) {
+	if( (self = [super init])) {
 		request_ = request;
 		response_ = response;
 	}
@@ -58,7 +58,7 @@
 
 - (id)initWithDelegate:(id)del rid:(u_int32_t)rid
 {
-	if(self = [super init])
+	if((self = [super init]))
 	{
 		window = [[NSMutableDictionary alloc] initWithCapacity:4];
 		windowSize = 0;
