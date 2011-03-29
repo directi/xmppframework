@@ -113,7 +113,7 @@ enum XMPPStreamFlags
 - (NSXMLElement *)newRootElement
 {
     NSString *streamNamespaceURI = @"http://etherx.jabber.org/streams";
-    NSXMLElement *element = [[[NSXMLElement alloc] initWithName:@"stream" URI:streamNamespaceURI] retain];
+    NSXMLElement *element = [[NSXMLElement alloc] initWithName:@"stream" URI:streamNamespaceURI];
     [element addNamespaceWithPrefix:@"stream" stringValue:streamNamespaceURI];
     [element addNamespaceWithPrefix:@"" stringValue:@"jabber:client"];
     return element;
@@ -889,8 +889,6 @@ enum XMPPStreamFlags
 
 - (void)restartStream
 {
-    [rootElement release];
-    rootElement = [self newRootElement];
     [transport restartStream];
 }
 
@@ -1290,7 +1288,7 @@ enum XMPPStreamFlags
 	// Digest Access authentication requires us to know the ID attribute from the <stream:stream/> element.
 	
 	[rootElement release];
-	rootElement = [self newRootElement];
+	rootElement = [[self newRootElement] retain];
     if ([self isP2P] && [self isP2PRecipient])
     {
         self.remoteJID = [transport remoteJID];

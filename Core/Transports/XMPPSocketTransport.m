@@ -82,6 +82,14 @@
 
 - (void)dealloc
 {
+    [multicastDelegate release];
+    [asyncSocket release];
+    [parser release];
+    [host release];
+    [rootElement release];
+    [remoteJID release];
+    [srvResolver release];
+    [srvResults release];
     [keepAliveTimer invalidate];
 	[keepAliveTimer release];
     [super dealloc];
@@ -283,6 +291,7 @@
 {
     state = XMPP_SOCKET_RESTARTING;
     [self sendOpeningNegotiation];
+    [multicastDelegate transportDidStartNegotiation:self];
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
