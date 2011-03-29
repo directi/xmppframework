@@ -19,7 +19,7 @@
 
 - (void)applicationDidFinishLaunching:(UIApplication *)application
 {
-	transport = [[BoshTransport alloc] initWithUrl:@"http://localhost:5280/http-bind" forHost:@"directi.com"];
+	transport = [[BoshTransport alloc] initWithUrl:@"http://localhost:5280/http-bind" forDomain:@"directi.com"];
     //[transport setMyJID:[XMPPJID jidWithString:@"satyam.s@directi.com"]];
     
     //173.255.205.197

@@ -10,48 +10,125 @@
 #import "DDXML.h"
 #import "NSXMLElementAdditions.h"
 
-#pragma mark -
-#pragma mark Private Accessor Methods
+#pragma -
+#pragma RequestResponsePair Class
+@implementation RequestResponsePair
+
+@synthesize request=request_;
+@synthesize response=response_;
+
+- (id) initWithRequest:(NSXMLElement *)request response:(NSXMLElement *)response
+{
+	if( (self = [super init])) {
+		request_ = request;
+		response_ = response;
+	}
+	return self;
+}
+
+- (void)dealloc
+{
+	[request_ release];
+	[response_ release];
+	[super dealloc];
+}
+@end
+
+#pragma -
+#pragma BoshWindowManager Class
+
+@implementation BoshWindowManager
+
+@synthesize windowSize;
+@synthesize outstandingRequests;
+
+- (long long)getRidInBody:(NSXMLElement *)body
+{
+    return [[[body attributeForName:@"rid"] stringValue] longLongValue];
+}
+
+- (NSString *)stringFromInt:(long long)num
+{
+	return [NSString stringWithFormat:@"%q",num];
+}
+
+- (id)initWithDelegate:(id)del rid:(long long)rid
+{
+	if((self = [super init]))
+	{
+		window = [[NSMutableDictionary alloc] initWithCapacity:4];
+		windowSize = 0;
+		outstandingRequests = 0;
+		maxRidSent = rid;
+		maxRidReceived = rid;
+		delegate = del;
+	}
+	return self;
+}
+
+- (void)sentRequest:(NSXMLElement *)request
+{
+	NSAssert( [self canSendMoreRequests], @"Sending request when should not be: Exceeding request count" );
+	long long requestRid = [self getRidInBody:request];
+	NSAssert ( requestRid == maxRidSent + 1, @"Sending request with rid = %qi greater than expected rid = %qi", requestRid, maxRidSent + 1);
+	++maxRidSent;
+	[window setValue:[[RequestResponsePair alloc] initWithRequest:request response:nil] forKey:[self stringFromInt:requestRid]];
+}
+
+- (void)processResponses
+{
+	while (true)
+	{
+		RequestResponsePair *requestResponsePair = [window valueForKey:[self stringFromInt:(maxRidReceived+1)]];
+		if( requestResponsePair.response == nil ) break;
+		[[requestResponsePair.response retain] autorelease];
+		[window removeObjectForKey:[ self stringFromInt:(maxRidReceived + 1) ]];
+		++maxRidReceived;
+		[delegate broadcastStanzas:requestResponsePair.response];
+	}
+}
+
+- (void)recievedResponse:(NSXMLElement *)response
+{
+	long long responseRid = [self getRidInBody:response];
+	NSAssert(responseRid > maxRidReceived, @"Recieving response for rid = %qi where maxRidReceived = %qi", responseRid, maxRidReceived);
+	NSAssert(responseRid < maxRidReceived + windowSize, @"Recieved response for a request outside the rid window. responseRid = %qi, maxRidReceived = %qi, windowSize = %qi", responseRid, maxRidReceived, windowSize);
+	RequestResponsePair *requestResponsePair = [window valueForKey:[self stringFromInt:responseRid]];
+	NSAssert( requestResponsePair != nil, @"Response rid not in queue");
+	requestResponsePair.response = response;
+	[self processResponses];
+}
+
+- (BOOL)canSendMoreRequests
+{
+	return (maxRidSent - maxRidReceived) < windowSize;
+}
+
+- (BOOL)canLetServerHoldRequests:(long long)hold
+{
+	return (maxRidSent - maxRidReceived) < hold;
+}
+- (NSXMLElement *)getRequestForRid:(long long)rid
+{
+	NSAssert( rid - maxRidReceived > 0 && [window count] > (rid - maxRidReceived), @"Error Access request for rid = %qi, where maxRidReceived = %qi and [requestQueue count] = %qi", rid, maxRidReceived, [window count]);
+	return [window valueForKey:[self stringFromInt:rid]];
+}
+@end
+
 @interface BoshTransport()
 - (void)setInactivity:(NSString *)givenInactivity;
 - (void)setSecure:(NSString *)isSecure;
 - (void)setRequests:(NSString *)maxRequests;
 @end
 
-#pragma mark Private utilities
-@interface BoshTransport()
-- (long long) generateRid;	
-- (NSArray *) convertToStrings:(NSArray *)array;
-- (SEL)setterForProperty:(NSString *)property;
-- (NSNumber *)numberFromString:(NSString *)stringNumber;
-@end
-
-#pragma mark http
-@interface BoshTransport()
-- (void) sendRequestWithBody:(NSXMLElement *)body responseHandler:(SEL)responseHandler errorHandler:(SEL)errorHandler;
-- (void)broadcastStanzas:(NSXMLNode *)node;
-- (void)startSessionWithRequest:(NSXMLElement *)body;
-- (void)trySendingStanzas;
-- (void)sendRequest:(NSArray *)bodyPayload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces;
-@end
-
-#pragma mark xml
-@interface BoshTransport()
-- (long long)getRidInRequest:(NSXMLElement *)body;
-- (NSXMLElement *) newRequestWithPayload:(NSArray *)payload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces;
-- (NSArray *) createAttributeArrayFromDictionary:(NSDictionary *)attributes;
-- (NSArray *) createNamespaceArrayFromDictionary:(NSDictionary *)namespacesDictionary;
-- (NSXMLElement *) parseXMLData:(NSData *)xml;
-- (NSXMLElement *) parseXMLString:(NSString *)xml;
-@end
-
-
+#pragma -
+#pragma BoshTranshport Class
 @implementation BoshTransport
 
 @synthesize wait = wait_;
 @synthesize hold = hold_;
 @synthesize lang = lang_;
-@synthesize host = host_;
+@synthesize domain = domain_;
 @synthesize myJID = myJID_;
 @synthesize sid = sid_;
 @synthesize url = url_;
@@ -86,12 +163,12 @@
 #pragma mark -
 #pragma mark init
 
-- (id)initWithUrl:(NSString *)url forHost:(NSString *)host
+- (id)initWithUrl:(NSString *)url forDomain:(NSString *)domain
 {
-    return [self initWithUrl:url forHost:host withDelegate:nil];
+    return [self initWithUrl:url forDomain:(NSString *)domain withDelegate:nil];
 }
 
-- (id)initWithUrl:(NSString *)url forHost:(NSString *)host withDelegate:(id<XMPPTransportDelegate>)delegate
+- (id)initWithUrl:(NSString *)url forDomain:(NSString *)domain withDelegate:(id<XMPPTransportDelegate>)delegate
 {
     self = [super init];
     if(self)
@@ -116,7 +193,7 @@
         inactivity = [[NSNumber alloc] initWithInt:0];
         requests = [[NSNumber alloc] initWithInt:0];
         url_ = url;
-        host_ = host;
+        domain_ = domain;
         myJID_ = nil;
 		
 		/* Keeping a random capacity right now */
@@ -133,26 +210,30 @@
     return 1.0;
 }
 
-- (BOOL)connect:(NSError **)error
+- (BOOL)canConnect
 {
-    NSLog(@"BOSH: Connecting to %@ with jid = %@", self.host, [self.myJID bare]);
-	
-    if(!self.host)
+    if(!self.domain)
     {
-        NSLog(@"BOSH: Called Connect with specifying the host");
+        NSLog(@"BOSH: Called Connect with specifying the domain");
         return NO;
     }
-	
     if(!self.myJID)
     {
         NSLog(@"BOSH: Called connect without setting the jid");
         return NO;
     }
-    
+    return YES;
+}
+
+- (BOOL)connect:(NSError **)error
+{
+    NSLog(@"BOSH: Connecting to %@ with jid = %@", self.domain, [self.myJID bare]);
+	if(![self canConnect]) return NO;
+
     [multicastDelegate transportWillConnect:self];
     
     NSArray *keys = [NSArray arrayWithObjects:@"content", @"hold", @"to", @"ver", @"wait", @"ack", @"xml:lang", @"from", @"secure", nil];
-    NSArray *objects = [NSArray arrayWithObjects:content, self.hold, self.host, boshVersion, self.wait, ack, self.lang, [self.myJID bare], @"false", nil];
+    NSArray *objects = [NSArray arrayWithObjects:content, self.hold, self.domain, boshVersion, self.wait, ack, self.lang, [self.myJID bare], @"false", nil];
     NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjects:[self convertToStrings:objects] forKeys:keys];
     NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: XMPP_NS, @"xmpp", nil];
     
@@ -243,6 +324,12 @@
         }
     }
 }
+
+/* 
+ The bosh server doesn't reply with requests ( and possibly other ) attrs.
+ Cause: Connection between the bosh proxy and xmpp server is broken.
+ Result: requests = 0. ==> window manager raises an exception.
+*/
 
 - (void)sessionResponseHandler:(ASIHTTPRequest *)request
 {

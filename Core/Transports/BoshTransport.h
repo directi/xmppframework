@@ -11,7 +11,37 @@
 #import "XMPPJID.h"
 #import "MulticastDelegate.h"
 #import "ASIHTTPRequest.h"
-#import "BoshWindowManager.h"
+
+@protocol BoshWindowProtocol
+- (void)broadcastStanzas:(NSXMLNode *)node;
+@end
+
+@interface RequestResponsePair : NSObject
+@property(retain) NSXMLElement *request;
+@property(retain) NSXMLElement *response;
+- (id)initWithRequest:(NSXMLElement *)request response:(NSXMLElement *)response;
+- (void)dealloc;
+@end
+
+@interface BoshWindowManager : NSObject {
+	NSMutableDictionary *window;
+	
+	long long maxRidReceived;
+	long long maxRidSent;
+	
+	id delegate;
+}
+
+@property long long windowSize;
+@property(readonly) long long outstandingRequests;
+
+- (void)sentRequest:(NSXMLElement *)request;
+- (void)recievedResponse:(NSXMLElement *)response;
+- (BOOL)canSendMoreRequests;
+- (BOOL)canLetServerHoldRequests:(long long)hold;
+- (NSXMLElement *)getRequestForRid:(long long)rid;
+- (id)initWithDelegate:(id)del rid:(long long)rid;
+@end
 
 @interface BoshTransport : NSObject <XMPPTransportProtocol, BoshWindowProtocol > {
 	NSString *boshVersion;
@@ -34,7 +64,7 @@
 @property(retain) NSNumber *wait;
 @property(retain) NSNumber *hold;
 @property(copy) NSString *lang;
-@property(copy) NSString *host;
+@property(copy) NSString *domain;
 @property(readonly) NSNumber *inactivity;
 @property(readonly) BOOL secure;
 @property(readonly) NSNumber *requests;
@@ -43,10 +73,10 @@
 @property(copy) NSString *url;
 
 /* init Methods */
-- (id)initWithUrl:(NSString *)url forHost:(NSString *)host;
-- (id)initWithUrl:(NSString *)url forHost:(NSString *)host withDelegate:(id<XMPPTransportDelegate>)delegate;
+- (id)initWithUrl:(NSString *)url forDomain:(NSString *)host;
+- (id)initWithUrl:(NSString *)url forDomain:(NSString *)host withDelegate:(id<XMPPTransportDelegate>)delegate;
 
-/* ASI http methods */
+/* ASI http methods - Delegate Methods */
 - (void)requestFinished:(ASIHTTPRequest *)request;
 - (void)requestFailed:(ASIHTTPRequest *)request;
 
@@ -61,5 +91,23 @@
 - (float)serverXmppStreamVersionNumber;
 - (BOOL)sendStanza:(NSXMLElement *)stanza;
 - (BOOL)sendStanzaWithString:(NSString *)string;
+
+/* Methods used internally */
 - (void)sessionResponseHandler:(ASIHTTPRequest *)request;
+- (long long)generateRid;
+- (NSArray *)convertToStrings:(NSArray *)array;
+- (SEL)setterForProperty:(NSString *)property;
+- (NSNumber *)numberFromString:(NSString *)stringNumber;
+- (void)sendRequestWithBody:(NSXMLElement *)body responseHandler:(SEL)responseHandler errorHandler:(SEL)errorHandler;
+- (void)broadcastStanzas:(NSXMLNode *)node;
+- (void)startSessionWithRequest:(NSXMLElement *)body;
+- (void)trySendingStanzas;
+- (void)sendRequest:(NSArray *)bodyPayload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces;
+- (long long)getRidInRequest:(NSXMLElement *)body;
+- (NSXMLElement *)newRequestWithPayload:(NSArray *)payload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces;
+- (NSArray *)createAttributeArrayFromDictionary:(NSDictionary *)attributes;
+- (NSArray *)createNamespaceArrayFromDictionary:(NSDictionary *)namespacesDictionary;
+- (NSXMLElement *)parseXMLData:(NSData *)xml;
+- (NSXMLElement *)parseXMLString:(NSString *)xml;
+
 @end
