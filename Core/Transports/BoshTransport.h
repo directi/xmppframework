@@ -12,6 +12,11 @@
 #import "MulticastDelegate.h"
 #import "ASIHTTPRequest.h"
 
+typedef enum {
+    ATTR_TYPE = 0,
+    NAMESPACE_TYPE = 1
+} XMLNodeType;
+
 @protocol BoshWindowProtocol
 - (void)broadcastStanzas:(NSXMLNode *)node;
 @end
@@ -25,10 +30,8 @@
 
 @interface BoshWindowManager : NSObject {
 	NSMutableDictionary *window;
-	
 	long long maxRidReceived;
 	long long maxRidSent;
-	
 	id delegate;
 }
 
@@ -105,8 +108,7 @@
 - (void)sendRequest:(NSArray *)bodyPayload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces;
 - (long long)getRidInRequest:(NSXMLElement *)body;
 - (NSXMLElement *)newRequestWithPayload:(NSArray *)payload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces;
-- (NSArray *)createAttributeArrayFromDictionary:(NSDictionary *)attributes;
-- (NSArray *)createNamespaceArrayFromDictionary:(NSDictionary *)namespacesDictionary;
+- (NSArray *)createXMLNodeArrayFromDictionary:(NSDictionary *)dict ofType:(XMLNodeType)type;
 - (NSXMLElement *)parseXMLData:(NSData *)xml;
 - (NSXMLElement *)parseXMLString:(NSString *)xml;
 

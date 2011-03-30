@@ -20,7 +20,6 @@
 		4A97CBDB1332314C009028BE /* libz.1.2.3.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4A97CBDA1332314C009028BE /* libz.1.2.3.dylib */; };
 		4A97CBDF13323191009028BE /* MobileCoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4A97CBDE13323191009028BE /* MobileCoreServices.framework */; };
 		4AD0F4E3133C82F600F442D9 /* BoshTransport.m in Sources */ = {isa = PBXBuildFile; fileRef = 4AD0F4E2133C82F600F442D9 /* BoshTransport.m */; };
-		4AD0F6511340F88800F442D9 /* BoshWindowManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 4AD0F6501340F88800F442D9 /* BoshWindowManager.m */; };
 		4ADAD416134222CE00F6E4B3 /* ASIAuthenticationDialog.m in Sources */ = {isa = PBXBuildFile; fileRef = 4ADAD401134222CE00F6E4B3 /* ASIAuthenticationDialog.m */; };
 		4ADAD417134222CE00F6E4B3 /* ASIDataCompressor.m in Sources */ = {isa = PBXBuildFile; fileRef = 4ADAD404134222CE00F6E4B3 /* ASIDataCompressor.m */; };
 		4ADAD418134222CE00F6E4B3 /* ASIDataDecompressor.m in Sources */ = {isa = PBXBuildFile; fileRef = 4ADAD406134222CE00F6E4B3 /* ASIDataDecompressor.m */; };
@@ -84,8 +83,6 @@
 		4A97CBDE13323191009028BE /* MobileCoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileCoreServices.framework; path = System/Library/Frameworks/MobileCoreServices.framework; sourceTree = SDKROOT; };
 		4AD0F4E1133C82F600F442D9 /* BoshTransport.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = BoshTransport.h; path = ../../Core/Transports/BoshTransport.h; sourceTree = SOURCE_ROOT; };
 		4AD0F4E2133C82F600F442D9 /* BoshTransport.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = BoshTransport.m; path = ../../Core/Transports/BoshTransport.m; sourceTree = SOURCE_ROOT; };
-		4AD0F64F1340F88800F442D9 /* BoshWindowManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = BoshWindowManager.h; path = ../../Core/Transports/BoshWindowManager.h; sourceTree = SOURCE_ROOT; };
-		4AD0F6501340F88800F442D9 /* BoshWindowManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = BoshWindowManager.m; path = ../../Core/Transports/BoshWindowManager.m; sourceTree = SOURCE_ROOT; };
 		4ADAD400134222CE00F6E4B3 /* ASIAuthenticationDialog.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ASIAuthenticationDialog.h; path = ../../Vendor/ASIHTTPRequest/ASIAuthenticationDialog.h; sourceTree = "<group>"; };
 		4ADAD401134222CE00F6E4B3 /* ASIAuthenticationDialog.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = ASIAuthenticationDialog.m; path = ../../Vendor/ASIHTTPRequest/ASIAuthenticationDialog.m; sourceTree = "<group>"; };
 		4ADAD402134222CE00F6E4B3 /* ASICacheDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ASICacheDelegate.h; path = ../../Vendor/ASIHTTPRequest/ASICacheDelegate.h; sourceTree = "<group>"; };
@@ -299,8 +296,6 @@
 		54FDBEC51330DA0C0099D4DB /* Transports */ = {
 			isa = PBXGroup;
 			children = (
-				4AD0F64F1340F88800F442D9 /* BoshWindowManager.h */,
-				4AD0F6501340F88800F442D9 /* BoshWindowManager.m */,
 				4AD0F4E1133C82F600F442D9 /* BoshTransport.h */,
 				4AD0F4E2133C82F600F442D9 /* BoshTransport.m */,
 				54FDBEC21330DA030099D4DB /* XMPPSocketTransport.h */,
@@ -568,7 +563,6 @@
 				0771B81E1315E9FC0018D5C6 /* XMPPStreamCoreDataStorage.m in Sources */,
 				54FDBEC41330DA030099D4DB /* XMPPSocketTransport.m in Sources */,
 				4AD0F4E3133C82F600F442D9 /* BoshTransport.m in Sources */,
-				4AD0F6511340F88800F442D9 /* BoshWindowManager.m in Sources */,
 				4ADAD416134222CE00F6E4B3 /* ASIAuthenticationDialog.m in Sources */,
 				4ADAD417134222CE00F6E4B3 /* ASIDataCompressor.m in Sources */,
 				4ADAD418134222CE00F6E4B3 /* ASIDataDecompressor.m in Sources */,

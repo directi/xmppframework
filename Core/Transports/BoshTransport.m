@@ -403,12 +403,7 @@
 }
 
 #pragma mark -
-#pragma mark XML
-
-- (long long)getRidInRequest:(NSXMLElement *)body
-{
-    return [[[body attributeForName:@"rid"] stringValue] longLongValue];
-}
+#pragma mark utilities
 
 - (NSXMLElement *)newRequestWithPayload:(NSArray *)payload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces
 {
@@ -423,18 +418,23 @@
     /* Adding the BODY_NS namespace on every outgoing request */
     [namespaces setValue:BODY_NS forKey:@""];
 	
-    NSXMLElement *boshRequest = [[NSXMLElement alloc] initWithName:@"body"];
+    NSXMLElement *body = [[NSXMLElement alloc] initWithName:@"body"];
 	
-    [boshRequest setNamespaces:[self createNamespaceArrayFromDictionary:namespaces]];
-    [boshRequest setAttributes:[self createAttributeArrayFromDictionary:attributes]];
+    [body setNamespaces:[self createXMLNodeArrayFromDictionary:namespaces ofType:NAMESPACE_TYPE]];
+    [body setAttributes:[self createXMLNodeArrayFromDictionary:attributes ofType:ATTR_TYPE]];
 	
     if(payload != nil)
         for(NSXMLElement *child in payload)
-            [boshRequest addChild:child];
+            [body addChild:child];
 
 	++nextRidToSend;
 	
-    return boshRequest;
+    return body;
+}
+
+- (long long)getRidInRequest:(NSXMLElement *)body
+{
+    return [[[body attributeForName:@"rid"] stringValue] longLongValue];
 }
 
 - (NSXMLElement *)returnRootElement:(NSXMLDocument *)doc
@@ -456,16 +456,16 @@
     return [self returnRootElement:doc];
 }
 
-- (NSArray *)createArrayFromDictionary:(NSDictionary *)dictionary ofType:(NSString *)type
+- (NSArray *)createXMLNodeArrayFromDictionary:(NSDictionary *)dict ofType:(XMLNodeType)type
 {
     NSMutableArray *array = [[NSMutableArray alloc] init];
-    for (NSString *key in dictionary) {
-        NSString *value = [dictionary objectForKey:key];
+    for (NSString *key in dict) {
+        NSString *value = [dict objectForKey:key];
         NSXMLNode *node;
         
-        if([type isEqualToString:@"attributes"]) 
+        if(type == ATTR_TYPE) 
             node = [NSXMLNode attributeWithName:key stringValue:value];
-        else if([type isEqualToString:@"namespaces"])
+        else if(type == NAMESPACE_TYPE)
             node = [NSXMLNode namespaceWithName:key stringValue:value];
         else 
             NSLog(@"BOSH: Wrong Type Passed to createArrayFrom Dictionary");
@@ -474,19 +474,6 @@
     }
     return [array autorelease];
 }
-
-- (NSArray *)createAttributeArrayFromDictionary:(NSDictionary *)attributesDictionary
-{
-    return [self createArrayFromDictionary:attributesDictionary ofType:@"attributes"];
-}
-
-- (NSArray *)createNamespaceArrayFromDictionary:(NSDictionary *)namespacesDictionary
-{
-    return [self createArrayFromDictionary:namespacesDictionary ofType:@"namespaces"];
-}
-
-#pragma mark -
-#pragma mark utilities
 
 - (long long)generateRid
 {
