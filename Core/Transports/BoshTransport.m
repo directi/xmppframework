@@ -113,6 +113,12 @@
 	NSAssert( rid - maxRidReceived > 0 && [window count] > (rid - maxRidReceived), @"Error Access request for rid = %qi, where maxRidReceived = %qi and [requestQueue count] = %qi", rid, maxRidReceived, [window count]);
 	return [window valueForKey:[self stringFromInt:rid]];
 }
+
+- (void) dealloc
+{
+    [window release];
+    [super dealloc];
+}
 @end
 
 @interface BoshTransport()
@@ -178,7 +184,7 @@
         content = [NSString stringWithFormat:@"text/xml; charset=utf-8"];
         wait_ = [[NSNumber alloc] initWithDouble:60.0];
         hold_ = [[NSNumber alloc] initWithInt:1];
-        ack = [[NSNumber alloc] initWithInt:1];
+        ack = [NSNumber numberWithInt:1];
 
         nextRidToSend = [self generateRid];
         
@@ -191,11 +197,12 @@
 		
         sid_ = nil;
         inactivity = [[NSNumber alloc] initWithInt:0];
-        requests = [[NSNumber alloc] initWithInt:0];
-        url_ = url;
-        domain_ = domain;
+        requests = [[NSNumber alloc] initWithInt:2];
+        url_ = [url copy];
+        domain_ = [domain copy];
         myJID_ = nil;
-		
+		state = DISCONNECTED;
+        
 		/* Keeping a random capacity right now */
 		pendingXMPPStanzas = [[NSMutableArray alloc] initWithCapacity:25];
     }
@@ -213,34 +220,52 @@
 - (BOOL)connect:(NSError **)error
 {
     NSLog(@"BOSH: Connecting to %@ with jid = %@", self.domain, [self.myJID bare]);
-	if(![self canConnect]) return NO;
     
+    if(![self canConnect]) return NO;
+    state = CONNECTING;
     [multicastDelegate transportWillConnect:self];
-    return [self startSession:error];
+    return [self createSession:error];
 }
 
 - (void)restartStream
 {
+    if(![self isConnected])
+    {
+        NSLog(@"BOSH: Need to be connected to restart the stream.");
+        return ;
+    }
     NSLog(@"Bosh: Will Restart Stream");
     NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: self.lang, @"xml:lang", @"true", @"xmpp:restart", nil];
-    NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: BODY_NS, @"", XMPP_NS, @"xmpp", nil];
-    [self sendRequest:nil attributes:attr namespaces:ns];
+    NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys:XMPP_NS, @"xmpp", nil];
+    
+    [self sendRequest:nil attributes:attr namespaces:ns responseHandler:nil errorHandler:nil];
 }
 
 - (void)disconnect
 {
+    if(![self isConnected])
+    {
+        NSLog(@"BOSH: Need to be connected to disconnect");
+        return;
+    }
     NSLog(@"Bosh: Will Terminate Session");
+    [multicastDelegate transportWillDisconnect:self];
     NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: self.lang, @"xml:lang", @"terminate", @"type", nil];
     NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: BODY_NS, @"", nil];
-    
-    [self sendRequest:nil attributes:attr namespaces:ns];
+    state = DISCONNECTING;
+    [self sendRequest:nil attributes:attr namespaces:ns responseHandler:@selector(disconnectSessionResponseHandler:) errorHandler:nil];
 }
 
 - (BOOL)sendStanza:(NSXMLElement *)stanza
 {
+    if (![self isConnected])
+    {
+        NSLog(@"BOSH: Need to be connected to be able to send stanza");
+        return NO;
+    }
     [pendingXMPPStanzas addObject:stanza];
     [self trySendingStanzas];
-    return TRUE;
+    return YES;
 }
 
 - (BOOL)sendStanzaWithString:(NSString *)string
@@ -262,8 +287,18 @@
 #pragma mark -
 #pragma mark BOSH
 
+- (BOOL)isConnected
+{
+    return state == CONNECTED;
+}
+
 - (BOOL)canConnect
 {
+    if( state != DISCONNECTED )
+    {
+        NSLog(@"@BOSH: Either disconnecting or still connected to the server. Disconnect First.");
+        return NO;
+    }
     if(!self.domain)
     {
         NSLog(@"BOSH: Called Connect with specifying the domain");
@@ -277,7 +312,7 @@
     return YES;
 }
 
-- (BOOL) startSession:(NSError **)error
+- (BOOL) createSession:(NSError **)error
 {
     NSArray *keys = [NSArray arrayWithObjects:@"content", @"hold", @"to", @"ver", @"wait", @"ack", @"xml:lang", @"from", @"secure", nil];
     NSArray *objects = [NSArray arrayWithObjects:content, self.hold, self.domain, boshVersion, self.wait, ack, self.lang, [self.myJID bare], @"false", nil];
@@ -285,23 +320,19 @@
     NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: XMPP_NS, @"xmpp", nil];
     
     NSXMLElement *requestPayload = [self newBodyElementWithPayload:nil attributes:attr namespaces:ns];
-    [self sendHTTPRequestWithBody:requestPayload responseHandler:@selector(sessionResponseHandler:) errorHandler:nil];
+    [self sendHTTPRequestWithBody:requestPayload responseHandler:@selector(createSessionResponseHandler:) errorHandler:nil];
     [requestPayload release];
     return YES;
 }
 
-/* 
- The bosh server doesn't reply with requests ( and possibly other ) attrs.
- Cause: Connection between the bosh proxy and xmpp server is broken.
- Result: requests = 0. ==> window manager raises an exception.
- */
-- (void)sessionResponseHandler:(ASIHTTPRequest *)request
+- (void)createSessionResponseHandler:(ASIHTTPRequest *)request
 {
-    [multicastDelegate transportDidConnect:self];
     NSLog(@"BOSH: Response = %@", [request responseString]);
+    state = CONNECTED;
     NSXMLElement *rootElement = [self parseXMLData:[request responseData]];
 	
     NSArray *responseAttributes = [rootElement attributes];
+    /* Setting inactivity, sid, wait, hold, ack, lang, authid, secure, requests */
     for(NSXMLNode *attr in responseAttributes)
     {
         NSString *attrName = [attr name];
@@ -315,10 +346,12 @@
     /* Not doing anything with namespaces right now - because chirkut doesn't send it */
     //NSArray *responseNamespaces = [rootElement namespaces];
     
-    [multicastDelegate transportDidStartNegotiation:self];
 	boshWindowManager = [[BoshWindowManager alloc] initWithDelegate:self rid:[self getRidInRequest:rootElement]];
 	[boshWindowManager setWindowSize:[requests unsignedIntValue]];
 	
+    [multicastDelegate transportDidConnect:self];
+    [multicastDelegate transportDidStartNegotiation:self];
+    
     if( [(NSXMLNode *)rootElement childCount] > 0 )
         [self broadcastStanzas:rootElement];
     
@@ -326,11 +359,29 @@
     [self sendRequestsToHold];
 }
 
-- (void)sendRequest:(NSArray *)bodyPayload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces
+- (void)disconnectSessionResponseHandler:(ASIHTTPRequest *)request
+{
+    state = DISCONNECTED;
+    [boshWindowManager release];
+    [multicastDelegate removeAllDelegates];
+    [pendingXMPPStanzas removeAllObjects];
+    self.myJID = nil;
+    nextRidToSend = [self generateRid];
+    ack = [NSNumber numberWithInt:1];
+    self.hold = [NSNumber numberWithInt:1];
+    self.wait = [NSNumber numberWithDouble:60.0];
+    [inactivity release];
+    inactivity = [NSNumber numberWithInt:0];
+    self.sid = nil;
+    self.authid = nil;
+    [multicastDelegate transportDidDisconnect:self];
+}
+
+- (void)sendRequest:(NSArray *)bodyPayload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces responseHandler:(SEL)responseHandler errorHandler:(SEL)errorHandler
 {
 	NSXMLElement *requestPayload = [self newBodyElementWithPayload:bodyPayload attributes:attributes namespaces:namespaces];
 	[boshWindowManager sentRequest:requestPayload];
-    [self sendHTTPRequestWithBody:requestPayload responseHandler:nil errorHandler:nil];
+    [self sendHTTPRequestWithBody:requestPayload responseHandler:responseHandler errorHandler:errorHandler];
 	[requestPayload release];
 }
 
@@ -338,7 +389,7 @@
 {
     if( [boshWindowManager canSendMoreRequests] && [pendingXMPPStanzas count] > 0)
 	{
-		[self sendRequest:pendingXMPPStanzas attributes:nil namespaces:nil];
+		[self sendRequest:pendingXMPPStanzas attributes:nil namespaces:nil responseHandler:nil errorHandler:nil];
 		[pendingXMPPStanzas removeAllObjects];
 	}
 }
@@ -346,7 +397,7 @@
 - (void)sendRequestsToHold
 {
     while( [boshWindowManager canLetServerHoldRequests:[self.hold unsignedIntValue]] ) 
-		[self sendRequest:nil attributes:nil namespaces:nil];
+		[self sendRequest:nil attributes:nil namespaces:nil responseHandler:nil errorHandler:nil];
 }
 
 /*
@@ -503,5 +554,20 @@
     NSNumber *number = [formatter numberFromString:stringNumber];
     [formatter release];
     return number;
+}
+
+- (void)dealloc
+{
+    [wait_ release];
+    [hold_ release];
+    [multicastDelegate release];
+    [inactivity release];
+    [requests release];
+    [url_ release];
+    [domain_ release];
+    [myJID_ release];
+    [authid release];
+    [sid_ release];
+    [super dealloc];
 }
 @end
