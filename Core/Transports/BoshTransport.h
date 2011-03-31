@@ -96,20 +96,21 @@ typedef enum {
 - (BOOL)sendStanzaWithString:(NSString *)string;
 
 /* Methods used internally */
+- (BOOL)canConnect;
 - (void)sessionResponseHandler:(ASIHTTPRequest *)request;
 - (long long)generateRid;
 - (NSArray *)convertToStrings:(NSArray *)array;
 - (SEL)setterForProperty:(NSString *)property;
 - (NSNumber *)numberFromString:(NSString *)stringNumber;
-- (void)sendRequestWithBody:(NSXMLElement *)body responseHandler:(SEL)responseHandler errorHandler:(SEL)errorHandler;
+- (void)sendHTTPRequestWithBody:(NSXMLElement *)body responseHandler:(SEL)responseHandler errorHandler:(SEL)errorHandler;
 - (void)broadcastStanzas:(NSXMLNode *)node;
-- (void)startSessionWithRequest:(NSXMLElement *)body;
 - (void)trySendingStanzas;
 - (void)sendRequest:(NSArray *)bodyPayload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces;
 - (long long)getRidInRequest:(NSXMLElement *)body;
-- (NSXMLElement *)newRequestWithPayload:(NSArray *)payload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces;
+- (NSXMLElement *)newBodyElementWithPayload:(NSArray *)payload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces;
 - (NSArray *)createXMLNodeArrayFromDictionary:(NSDictionary *)dict ofType:(XMLNodeType)type;
 - (NSXMLElement *)parseXMLData:(NSData *)xml;
 - (NSXMLElement *)parseXMLString:(NSString *)xml;
-
+- (void)sendRequestsToHold;
+- (BOOL) startSession:(NSError **)error;
 @end

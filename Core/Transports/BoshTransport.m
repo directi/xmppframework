@@ -19,7 +19,7 @@
 
 - (id) initWithRequest:(NSXMLElement *)request response:(NSXMLElement *)response
 {
-	if( (self = [super init])) {
+	if( (self = [super init]) ) {
 		request_ = request;
 		response_ = response;
 	}
@@ -49,7 +49,7 @@
 
 - (NSString *)stringFromInt:(long long)num
 {
-	return [NSString stringWithFormat:@"%q",num];
+	return [NSString stringWithFormat:@"%qi",num];
 }
 
 - (id)initWithDelegate:(id)del rid:(long long)rid
@@ -72,7 +72,7 @@
 	long long requestRid = [self getRidInBody:request];
 	NSAssert ( requestRid == maxRidSent + 1, @"Sending request with rid = %qi greater than expected rid = %qi", requestRid, maxRidSent + 1);
 	++maxRidSent;
-	[window setValue:[[RequestResponsePair alloc] initWithRequest:request response:nil] forKey:[self stringFromInt:requestRid]];
+	[window setValue:[[RequestResponsePair alloc] initWithRequest:request response:nil]  forKey:[self stringFromInt:requestRid]];
 }
 
 - (void)processResponses
@@ -210,37 +210,13 @@
     return 1.0;
 }
 
-- (BOOL)canConnect
-{
-    if(!self.domain)
-    {
-        NSLog(@"BOSH: Called Connect with specifying the domain");
-        return NO;
-    }
-    if(!self.myJID)
-    {
-        NSLog(@"BOSH: Called connect without setting the jid");
-        return NO;
-    }
-    return YES;
-}
-
 - (BOOL)connect:(NSError **)error
 {
     NSLog(@"BOSH: Connecting to %@ with jid = %@", self.domain, [self.myJID bare]);
 	if(![self canConnect]) return NO;
-
+    
     [multicastDelegate transportWillConnect:self];
-    
-    NSArray *keys = [NSArray arrayWithObjects:@"content", @"hold", @"to", @"ver", @"wait", @"ack", @"xml:lang", @"from", @"secure", nil];
-    NSArray *objects = [NSArray arrayWithObjects:content, self.hold, self.domain, boshVersion, self.wait, ack, self.lang, [self.myJID bare], @"false", nil];
-    NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjects:[self convertToStrings:objects] forKeys:keys];
-    NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: XMPP_NS, @"xmpp", nil];
-    
-    NSXMLElement *requestPayload = [self newRequestWithPayload:nil attributes:attr namespaces:ns];
-    [self sendRequestWithBody:requestPayload responseHandler:@selector(sessionResponseHandler:) errorHandler:nil];
-    [requestPayload release];
-    return YES;
+    return [self startSession:error];
 }
 
 - (void)restartStream
@@ -256,6 +232,7 @@
     NSLog(@"Bosh: Will Terminate Session");
     NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: self.lang, @"xml:lang", @"terminate", @"type", nil];
     NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: BODY_NS, @"", nil];
+    
     [self sendRequest:nil attributes:attr namespaces:ns];
 }
 
@@ -285,11 +262,75 @@
 #pragma mark -
 #pragma mark BOSH
 
+- (BOOL)canConnect
+{
+    if(!self.domain)
+    {
+        NSLog(@"BOSH: Called Connect with specifying the domain");
+        return NO;
+    }
+    if(!self.myJID)
+    {
+        NSLog(@"BOSH: Called connect without setting the jid");
+        return NO;
+    }
+    return YES;
+}
+
+- (BOOL) startSession:(NSError **)error
+{
+    NSArray *keys = [NSArray arrayWithObjects:@"content", @"hold", @"to", @"ver", @"wait", @"ack", @"xml:lang", @"from", @"secure", nil];
+    NSArray *objects = [NSArray arrayWithObjects:content, self.hold, self.domain, boshVersion, self.wait, ack, self.lang, [self.myJID bare], @"false", nil];
+    NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjects:[self convertToStrings:objects] forKeys:keys];
+    NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: XMPP_NS, @"xmpp", nil];
+    
+    NSXMLElement *requestPayload = [self newBodyElementWithPayload:nil attributes:attr namespaces:ns];
+    [self sendHTTPRequestWithBody:requestPayload responseHandler:@selector(sessionResponseHandler:) errorHandler:nil];
+    [requestPayload release];
+    return YES;
+}
+
+/* 
+ The bosh server doesn't reply with requests ( and possibly other ) attrs.
+ Cause: Connection between the bosh proxy and xmpp server is broken.
+ Result: requests = 0. ==> window manager raises an exception.
+ */
+- (void)sessionResponseHandler:(ASIHTTPRequest *)request
+{
+    [multicastDelegate transportDidConnect:self];
+    NSLog(@"BOSH: Response = %@", [request responseString]);
+    NSXMLElement *rootElement = [self parseXMLData:[request responseData]];
+	
+    NSArray *responseAttributes = [rootElement attributes];
+    for(NSXMLNode *attr in responseAttributes)
+    {
+        NSString *attrName = [attr name];
+        NSString *attrValue = [attr stringValue];
+        SEL setter = [self setterForProperty:attrName];
+        
+        if([self respondsToSelector:setter]) 
+            [self performSelector:setter withObject:attrValue];
+    }
+    
+    /* Not doing anything with namespaces right now - because chirkut doesn't send it */
+    //NSArray *responseNamespaces = [rootElement namespaces];
+    
+    [multicastDelegate transportDidStartNegotiation:self];
+	boshWindowManager = [[BoshWindowManager alloc] initWithDelegate:self rid:[self getRidInRequest:rootElement]];
+	[boshWindowManager setWindowSize:[requests unsignedIntValue]];
+	
+    if( [(NSXMLNode *)rootElement childCount] > 0 )
+        [self broadcastStanzas:rootElement];
+    
+    /* should we send these requests after a delay?? */
+    [self sendRequestsToHold];
+}
+
 - (void)sendRequest:(NSArray *)bodyPayload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces
 {
-	NSXMLElement *requestPayload = [self newRequestWithPayload:bodyPayload attributes:attributes namespaces:namespaces];
-	[self sendRequestWithBody:requestPayload responseHandler:nil errorHandler:nil];
+	NSXMLElement *requestPayload = [self newBodyElementWithPayload:bodyPayload attributes:attributes namespaces:namespaces];
 	[boshWindowManager sentRequest:requestPayload];
+    [self sendHTTPRequestWithBody:requestPayload responseHandler:nil errorHandler:nil];
 	[requestPayload release];
 }
 
@@ -325,50 +366,8 @@
     }
 }
 
-/* 
- The bosh server doesn't reply with requests ( and possibly other ) attrs.
- Cause: Connection between the bosh proxy and xmpp server is broken.
- Result: requests = 0. ==> window manager raises an exception.
-*/
-
-- (void)sessionResponseHandler:(ASIHTTPRequest *)request
-{
-    [multicastDelegate transportDidConnect:self];
-    NSLog(@"BOSH: Response = %@", [request responseString]);
-    NSXMLElement *rootElement = [self parseXMLData:[request responseData]];
-	
-    NSArray *responseAttributes = [rootElement attributes];
-    for(NSXMLNode *attr in responseAttributes)
-    {
-        NSString *attrName = [attr name];
-        NSString *attrValue = [attr stringValue];
-        SEL setter = [self setterForProperty:attrName];
-        
-        if([self respondsToSelector:setter]) 
-            [self performSelector:setter withObject:attrValue];
-    }
-
-    /* Not doing anything with namespaces right now - because chirkut doesn't send it */
-    //NSArray *responseNamespaces = [rootElement namespaces];
-    
-    [multicastDelegate transportDidStartNegotiation:self];
-	boshWindowManager = [[BoshWindowManager alloc] initWithDelegate:self rid:[self getRidInRequest:rootElement]];
-	[boshWindowManager setWindowSize:[requests unsignedIntValue]];
-	
-    if( [(NSXMLNode *)rootElement childCount] > 0 )
-        [self broadcastStanzas:rootElement];
-
-    /* should we send these requests after a delay?? */
-    [self sendRequestsToHold];
-}
-
-- (void)startSessionWithRequest:(NSXMLElement *)body
-{
-    
-}
-
 #pragma mark -
-#pragma mark HTTP
+#pragma mark HTTP Request Response
 
 /* Should call processRequestQueue after some timeOut */
 - (void)requestFinished:(ASIHTTPRequest *)request
@@ -382,9 +381,10 @@
 - (void)requestFailed:(ASIHTTPRequest *)request
 {
     NSLog(@"BOSH: request Failed = %@", [request error]);
+    [request startSynchronous];
 }
 
-- (void)sendRequestWithBody:(NSXMLElement *)body responseHandler:(SEL)responseHandler errorHandler:(SEL)errorHandler
+- (void)sendHTTPRequestWithBody:(NSXMLElement *)body responseHandler:(SEL)responseHandler errorHandler:(SEL)errorHandler
 {
     NSURL *url = [NSURL URLWithString:self.url];
     ASIHTTPRequest *request = [ASIHTTPRequest requestWithURL:url];
@@ -405,7 +405,7 @@
 #pragma mark -
 #pragma mark utilities
 
-- (NSXMLElement *)newRequestWithPayload:(NSArray *)payload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces
+- (NSXMLElement *)newBodyElementWithPayload:(NSArray *)payload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces
 {
     attributes = attributes?attributes:[NSMutableDictionary dictionaryWithCapacity:3];
     namespaces = namespaces?namespaces:[NSMutableDictionary dictionaryWithCapacity:1];
