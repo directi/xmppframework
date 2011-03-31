@@ -46,7 +46,7 @@ typedef enum {
 @property(readonly) long long outstandingRequests;
 
 - (void)sentRequest:(NSXMLElement *)request;
-- (void)recievedResponse:(NSXMLElement *)response;
+- (void)recievedResponse:(NSXMLElement *)response forRid:(long long)rid;
 - (BOOL)canSendMoreRequests;
 - (BOOL)canLetServerHoldRequests:(long long)hold;
 - (NSXMLElement *)getRequestForRid:(long long)rid;

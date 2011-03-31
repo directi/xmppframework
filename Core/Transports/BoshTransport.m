@@ -88,12 +88,11 @@
 	}
 }
 
-- (void)recievedResponse:(NSXMLElement *)response
+- (void)recievedResponse:(NSXMLElement *)response forRid:(long long)rid
 {
-	long long responseRid = [self getRidInBody:response];
-	NSAssert(responseRid > maxRidReceived, @"Recieving response for rid = %qi where maxRidReceived = %qi", responseRid, maxRidReceived);
-	NSAssert(responseRid < maxRidReceived + windowSize, @"Recieved response for a request outside the rid window. responseRid = %qi, maxRidReceived = %qi, windowSize = %qi", responseRid, maxRidReceived, windowSize);
-	RequestResponsePair *requestResponsePair = [window valueForKey:[self stringFromInt:responseRid]];
+	NSAssert(rid > maxRidReceived, @"Recieving response for rid = %qi where maxRidReceived = %qi", rid, maxRidReceived);
+	NSAssert(rid < maxRidReceived + windowSize, @"Recieved response for a request outside the rid window. responseRid = %qi, maxRidReceived = %qi, windowSize = %qi", rid, maxRidReceived, windowSize);
+	RequestResponsePair *requestResponsePair = [window valueForKey:[self stringFromInt:rid]];
 	NSAssert( requestResponsePair != nil, @"Response rid not in queue");
 	requestResponsePair.response = response;
 	[self processResponses];
@@ -425,7 +424,9 @@
 {
     NSString *responseString = [request responseString];
     NSLog(@"BOSH: response string = %@", responseString);
-	[boshWindowManager recievedResponse:[self parseXMLData:[request responseData]]];
+    NSString *postBodyString = [[NSString alloc] initWithData:[request postBody] encoding:NSUTF8StringEncoding];
+    NSXMLElement *postBody = [[NSXMLElement alloc] initWithXMLString:postBodyString error:nil];
+	[boshWindowManager recievedResponse:[self parseXMLData:[request responseData]] forRid:[self getRidInRequest:postBody]];
     [self sendRequestsToHold];
 }
 
