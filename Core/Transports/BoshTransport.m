@@ -200,10 +200,11 @@
         url_ = [url copy];
         domain_ = [domain copy];
         myJID_ = nil;
-		state = DISCONNECTED;
+        state = DISCONNECTED;
         
-		/* Keeping a random capacity right now */
-		pendingXMPPStanzas = [[NSMutableArray alloc] initWithCapacity:25];
+        /* Keeping a random capacity right now */
+        pendingXMPPStanzas = [[NSMutableArray alloc] initWithCapacity:25];
+        pendingHttpRequests = [[NSMutableSet alloc] initWithCapacity:3];
     }
     return self;
 }
@@ -426,7 +427,6 @@
     NSLog(@"disconnectSessionResponseHandler");
     NSLog(@"BOSH: RECD[%@", [self logRequestResponse:[request responseData]]);
     state = DISCONNECTED;
-    [multicastDelegate transportDidDisconnect:self];
     [boshWindowManager release];
     [pendingXMPPStanzas removeAllObjects];
     nextRidToSend = [self generateRid];
@@ -436,7 +436,11 @@
     [inactivity release];
     inactivity = [NSNumber numberWithInt:0];
     self.sid = nil;
-    self.authid = nil;    
+    self.authid = nil;
+    for ( ASIHTTPRequest *pendingRequest in pendingHttpRequests )
+        [pendingRequest cancel];
+    [pendingHttpRequests removeAllObjects];
+    [multicastDelegate transportDidDisconnect:self];
 }
 
 /* Should call processRequestQueue after some timeOut */
@@ -444,8 +448,9 @@
 {
     NSLog(@"BOSH: RECD[%@", [self logRequestResponse:[request responseData]]);
     NSString *postBodyString = [[NSString alloc] initWithData:[request postBody] encoding:NSUTF8StringEncoding];
+    [pendingHttpRequests removeObject:request];
     NSXMLElement *postBody = [[NSXMLElement alloc] initWithXMLString:postBodyString error:nil];
-	[boshWindowManager recievedResponse:[self parseXMLData:[request responseData]] forRid:[self getRidInRequest:postBody]];
+    [boshWindowManager recievedResponse:[self parseXMLData:[request responseData]] forRid:[self getRidInRequest:postBody]];
     [self sendRequestsToHold];
 }
 
@@ -479,7 +484,7 @@
     if(errorHandler) [request setDidFailSelector:errorHandler];
     
     [request startAsynchronous];
-    
+    [pendingHttpRequests addObject:request];
     NSLog(@"BOSH: SEND[%@", [self logRequestResponse:[request postBody]]);
     return;
 }
