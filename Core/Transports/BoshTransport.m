@@ -91,7 +91,7 @@
 - (void)recievedResponse:(NSXMLElement *)response forRid:(long long)rid
 {
 	NSAssert(rid > maxRidReceived, @"Recieving response for rid = %qi where maxRidReceived = %qi", rid, maxRidReceived);
-	NSAssert(rid < maxRidReceived + windowSize, @"Recieved response for a request outside the rid window. responseRid = %qi, maxRidReceived = %qi, windowSize = %qi", rid, maxRidReceived, windowSize);
+	NSAssert(rid <= maxRidReceived + windowSize, @"Recieved response for a request outside the rid window. responseRid = %qi, maxRidReceived = %qi, windowSize = %qi", rid, maxRidReceived, windowSize);
 	RequestResponsePair *requestResponsePair = [window valueForKey:[self stringFromInt:rid]];
 	NSAssert( requestResponsePair != nil, @"Response rid not in queue");
 	requestResponsePair.response = response;
