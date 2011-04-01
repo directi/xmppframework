@@ -321,10 +321,16 @@
     [requestPayload release];
     return YES;
 }
-
+- (NSString *)logRequestResponse:(NSData *)data
+{
+    NSXMLElement *ele = [self parseXMLData:data];
+    long long rid = [self getRidInRequest:ele];
+    NSString *dataString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+    return [NSString stringWithFormat:@"%qi] = %@", rid, [dataString autorelease]];
+}
 - (void)createSessionResponseHandler:(ASIHTTPRequest *)request
 {
-    NSLog(@"BOSH: Response = %@", [request responseString]);
+    NSLog(@"BOSH: RECD[%@", [self logRequestResponse:[request responseData]]);
     state = CONNECTED;
     NSXMLElement *rootElement = [self parseXMLData:[request responseData]];
 	
@@ -430,8 +436,7 @@
 /* Should call processRequestQueue after some timeOut */
 - (void)requestFinished:(ASIHTTPRequest *)request
 {
-    NSString *responseString = [request responseString];
-    NSLog(@"BOSH: response string = %@", responseString);
+    NSLog(@"BOSH: RECD[%@", [self logRequestResponse:[request responseData]]);
     NSString *postBodyString = [[NSString alloc] initWithData:[request postBody] encoding:NSUTF8StringEncoding];
     NSXMLElement *postBody = [[NSXMLElement alloc] initWithXMLString:postBodyString error:nil];
 	[boshWindowManager recievedResponse:[self parseXMLData:[request responseData]] forRid:[self getRidInRequest:postBody]];
@@ -442,7 +447,7 @@
 - (void)requestFailed:(ASIHTTPRequest *)request
 {
     NSError *error = [request error];
-    NSLog(@"BOSH: request Failed = %@", error);
+    NSLog(@"BOSH: Request Failed[%@", [self logRequestResponse:[request postBody]]);
     if ( [error code] == ASIRequestTimedOutErrorType || [error code] == ASIConnectionFailureErrorType )
     {
         [request startSynchronous];
@@ -468,7 +473,7 @@
     
     [request startAsynchronous];
     
-    NSLog(@"BOSH: Async Request Sent with data = %@", body);
+    NSLog(@"BOSH: SEND[%@", [self logRequestResponse:[request postBody]]);
     return;
 }
 
