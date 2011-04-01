@@ -68,7 +68,8 @@ typedef enum {
 	NSMutableArray *pendingXMPPStanzas;
 	BoshWindowManager *boshWindowManager;
     BoshTransportState state;
-    
+  
+    NSMutableSet *pendingHttpRequests;
 	MulticastDelegate <XMPPTransportDelegate> *multicastDelegate;
 }
 
