@@ -248,11 +248,9 @@
         return;
     }
     NSLog(@"Bosh: Will Terminate Session");
-    [multicastDelegate transportWillDisconnect:self];
-    NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: self.lang, @"xml:lang", @"terminate", @"type", nil];
-    NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: BODY_NS, @"", nil];
     state = DISCONNECTING;
-    [self sendRequest:nil attributes:attr namespaces:ns responseHandler:@selector(disconnectSessionResponseHandler:) errorHandler:nil];
+    [multicastDelegate transportWillDisconnect:self];
+
 }
 
 - (BOOL)sendStanza:(NSXMLElement *)stanza
@@ -386,11 +384,21 @@
 
 - (void)trySendingStanzas
 {
-    if( [boshWindowManager canSendMoreRequests] && [pendingXMPPStanzas count] > 0)
+    if( [boshWindowManager canSendMoreRequests])
 	{
-		[self sendRequest:pendingXMPPStanzas attributes:nil namespaces:nil responseHandler:nil errorHandler:nil];
-		[pendingXMPPStanzas removeAllObjects];
+        if ([pendingXMPPStanzas count] > 0 )
+        {
+            [self sendRequest:pendingXMPPStanzas attributes:nil namespaces:nil responseHandler:nil errorHandler:nil];
+            [pendingXMPPStanzas removeAllObjects];
+        }
+        if( state == DISCONNECTING )
+        {
+            NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: self.lang, @"xml:lang", @"terminate", @"type", nil];
+            NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: BODY_NS, @"", nil];
+            [self sendRequest:nil attributes:attr namespaces:ns responseHandler:@selector(disconnectSessionResponseHandler:) errorHandler:nil];
+        }
 	}
+    
 }
 
 - (void)sendRequestsToHold
@@ -430,10 +438,20 @@
     [self sendRequestsToHold];
 }
 
+/* Not sending terminate request to the server - just disconnecting */
 - (void)requestFailed:(ASIHTTPRequest *)request
 {
-    NSLog(@"BOSH: request Failed = %@", [request error]);
-    [request startSynchronous];
+    NSError *error = [request error];
+    NSLog(@"BOSH: request Failed = %@", error);
+    if ( [error code] == ASIRequestTimedOutErrorType || [error code] == ASIConnectionFailureErrorType )
+    {
+        [request startSynchronous];
+    }
+    else 
+    {
+        [multicastDelegate transportWillDisconnect:self withError:error];
+        [self disconnectSessionResponseHandler:nil];
+    }
 }
 
 - (void)sendHTTPRequestWithBody:(NSXMLElement *)body responseHandler:(SEL)responseHandler errorHandler:(SEL)errorHandler
