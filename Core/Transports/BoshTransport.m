@@ -91,7 +91,7 @@
 - (void)recievedResponse:(NSXMLElement *)response forRid:(long long)rid
 {
 	NSAssert(rid > maxRidReceived, @"Recieving response for rid = %qi where maxRidReceived = %qi", rid, maxRidReceived);
-	NSAssert(rid < maxRidReceived + windowSize, @"Recieved response for a request outside the rid window. responseRid = %qi, maxRidReceived = %qi, windowSize = %qi", rid, maxRidReceived, windowSize);
+	NSAssert(rid <= maxRidReceived + windowSize, @"Recieved response for a request outside the rid window. responseRid = %qi, maxRidReceived = %qi, windowSize = %qi", rid, maxRidReceived, windowSize);
 	RequestResponsePair *requestResponsePair = [window valueForKey:[self stringFromInt:rid]];
 	NSAssert( requestResponsePair != nil, @"Response rid not in queue");
 	requestResponsePair.response = response;
@@ -321,13 +321,70 @@
     [requestPayload release];
     return YES;
 }
-- (NSString *)logRequestResponse:(NSData *)data
+
+- (void)sendRequest:(NSArray *)bodyPayload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces responseHandler:(SEL)responseHandler errorHandler:(SEL)errorHandler
 {
-    NSXMLElement *ele = [self parseXMLData:data];
-    long long rid = [self getRidInRequest:ele];
-    NSString *dataString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-    return [NSString stringWithFormat:@"%qi] = %@", rid, [dataString autorelease]];
+	NSXMLElement *requestPayload = [self newBodyElementWithPayload:bodyPayload attributes:attributes namespaces:namespaces];
+    NSLog(@"request paylaod = %@", requestPayload);
+	[boshWindowManager sentRequest:requestPayload];
+    [self sendHTTPRequestWithBody:requestPayload responseHandler:responseHandler errorHandler:errorHandler];
+	[requestPayload release];
 }
+
+- (void)trySendingStanzas
+{
+    if( [boshWindowManager canSendMoreRequests])
+	{
+        if ([pendingXMPPStanzas count] > 0 )
+        {
+            [self sendRequest:pendingXMPPStanzas attributes:nil namespaces:nil responseHandler:nil errorHandler:nil];
+            [pendingXMPPStanzas removeAllObjects];
+        }
+        if( state == DISCONNECTING )
+        {
+            NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: @"terminate", @"type", nil];
+            NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: BODY_NS, @"", nil];
+            [self sendRequest:nil attributes:attr namespaces:ns responseHandler:@selector(disconnectSessionResponseHandler:) errorHandler:nil];
+        }
+	}
+    
+}
+
+- (void)sendRequestsToHold
+{
+    while( [boshWindowManager canLetServerHoldRequests:[self.hold unsignedIntValue]] ) 
+        [self sendRequest:nil attributes:nil namespaces:nil responseHandler:nil errorHandler:nil];
+
+    if( state == DISCONNECTING )
+    {
+        NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: @"terminate", @"type", nil];
+        NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: BODY_NS, @"", nil];
+        [self sendRequest:nil attributes:attr namespaces:ns responseHandler:@selector(disconnectSessionResponseHandler:) errorHandler:nil];
+    }
+}
+
+/*
+  For each received stanza the client might send out packets.
+  We should ideally put all the request in the queue and call
+  processRequestQueue with a timeOut.
+*/ 
+- (void)broadcastStanzas:(NSXMLNode *)node
+{
+    NSUInteger level = [node level];
+    while( (node = [node nextNode]) )
+    {
+        
+        if([node level] == level + 1)
+        {
+            NSLog(@"BOSH: Passing to delegates the stanza = %@", node);
+            [multicastDelegate transport:self didReceiveStanza:[(NSXMLElement *)node copy]];
+        }
+    }
+}
+
+#pragma mark -
+#pragma mark HTTP Request Response
+
 - (void)createSessionResponseHandler:(ASIHTTPRequest *)request
 {
     NSLog(@"BOSH: RECD[%@", [self logRequestResponse:[request responseData]]);
@@ -355,6 +412,8 @@
     [multicastDelegate transportDidConnect:self];
     [multicastDelegate transportDidStartNegotiation:self];
     
+    NSLog(@"%ud", [(NSXMLNode *)rootElement childCount]);
+    NSLog(@"root elemetn = %@", rootElement);
     if( [(NSXMLNode *)rootElement childCount] > 0 )
         [self broadcastStanzas:rootElement];
     
@@ -364,11 +423,12 @@
 
 - (void)disconnectSessionResponseHandler:(ASIHTTPRequest *)request
 {
+    NSLog(@"disconnectSessionResponseHandler");
+    NSLog(@"BOSH: RECD[%@", [self logRequestResponse:[request responseData]]);
     state = DISCONNECTED;
+    [multicastDelegate transportDidDisconnect:self];
     [boshWindowManager release];
-    [multicastDelegate removeAllDelegates];
     [pendingXMPPStanzas removeAllObjects];
-    self.myJID = nil;
     nextRidToSend = [self generateRid];
     ack = [NSNumber numberWithInt:1];
     self.hold = [NSNumber numberWithInt:1];
@@ -376,62 +436,8 @@
     [inactivity release];
     inactivity = [NSNumber numberWithInt:0];
     self.sid = nil;
-    self.authid = nil;
-    [multicastDelegate transportDidDisconnect:self];
+    self.authid = nil;    
 }
-
-- (void)sendRequest:(NSArray *)bodyPayload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces responseHandler:(SEL)responseHandler errorHandler:(SEL)errorHandler
-{
-	NSXMLElement *requestPayload = [self newBodyElementWithPayload:bodyPayload attributes:attributes namespaces:namespaces];
-	[boshWindowManager sentRequest:requestPayload];
-    [self sendHTTPRequestWithBody:requestPayload responseHandler:responseHandler errorHandler:errorHandler];
-	[requestPayload release];
-}
-
-- (void)trySendingStanzas
-{
-    if( [boshWindowManager canSendMoreRequests])
-	{
-        if ([pendingXMPPStanzas count] > 0 )
-        {
-            [self sendRequest:pendingXMPPStanzas attributes:nil namespaces:nil responseHandler:nil errorHandler:nil];
-            [pendingXMPPStanzas removeAllObjects];
-        }
-        if( state == DISCONNECTING )
-        {
-            NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: self.lang, @"xml:lang", @"terminate", @"type", nil];
-            NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: BODY_NS, @"", nil];
-            [self sendRequest:nil attributes:attr namespaces:ns responseHandler:@selector(disconnectSessionResponseHandler:) errorHandler:nil];
-        }
-	}
-    
-}
-
-- (void)sendRequestsToHold
-{
-    while( [boshWindowManager canLetServerHoldRequests:[self.hold unsignedIntValue]] ) 
-		[self sendRequest:nil attributes:nil namespaces:nil responseHandler:nil errorHandler:nil];
-}
-
-/*
-  For each received stanza the client might send out packets.
-  We should ideally put all the request in the queue and call
-  processRequestQueue with a timeOut.
-*/ 
-- (void)broadcastStanzas:(NSXMLNode *)node
-{
-    while( (node = [node nextNode]) )
-    {
-        if([node level] == 1)
-        {
-            NSLog(@"BOSH: Passing to delegates the stanza = %@", node);
-            [multicastDelegate transport:self didReceiveStanza:[(NSXMLElement *)node copy]];
-        }
-    }
-}
-
-#pragma mark -
-#pragma mark HTTP Request Response
 
 /* Should call processRequestQueue after some timeOut */
 - (void)requestFinished:(ASIHTTPRequest *)request
@@ -446,6 +452,7 @@
 /* Not sending terminate request to the server - just disconnecting */
 - (void)requestFailed:(ASIHTTPRequest *)request
 {
+    if( ![self isConnected] ) return ;
     NSError *error = [request error];
     NSLog(@"BOSH: Request Failed[%@", [self logRequestResponse:[request postBody]]);
     if ( [error code] == ASIRequestTimedOutErrorType || [error code] == ASIConnectionFailureErrorType )
@@ -500,7 +507,7 @@
 	
     if(payload != nil)
         for(NSXMLElement *child in payload)
-            [body addChild:child];
+            [body addChild:[[child copy] autorelease]];
 
 	++nextRidToSend;
 	
@@ -509,13 +516,14 @@
 
 - (long long)getRidInRequest:(NSXMLElement *)body
 {
-    return [[[body attributeForName:@"rid"] stringValue] longLongValue];
+    
+    return body && [body attributeForName:@"rid"]?[[[body attributeForName:@"rid"] stringValue] longLongValue]:-1;
 }
 
 - (NSXMLElement *)returnRootElement:(NSXMLDocument *)doc
 {
     NSXMLElement *rootElement = [doc rootElement];
-    [doc release];
+    //[doc autorelease];
     return rootElement;	
 }
 
@@ -578,6 +586,14 @@
     NSNumber *number = [formatter numberFromString:stringNumber];
     [formatter release];
     return number;
+}
+
+- (NSString *)logRequestResponse:(NSData *)data
+{
+    NSString *dataString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+    NSXMLElement *ele = [self parseXMLData:data];
+    long long rid = [self getRidInRequest:ele];
+    return [NSString stringWithFormat:@"%qi] = %@", rid, [dataString autorelease]];
 }
 
 - (void)dealloc

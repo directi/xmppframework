@@ -109,6 +109,7 @@ typedef enum {
 
 /* Methods used internally */
 - (BOOL)canConnect;
+- (NSString *)logRequestResponse:(NSData *)data;
 - (void)createSessionResponseHandler:(ASIHTTPRequest *)request;
 - (void)disconnectSessionResponseHandler:(ASIHTTPRequest *)request;
 - (long long)generateRid;
