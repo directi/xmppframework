@@ -62,13 +62,13 @@ typedef enum {
     NSString *STREAM_NS;
     NSString *BODY_NS;
     NSString *XMPP_NS;
-        
+
     long long nextRidToSend;
 	
 	NSMutableArray *pendingXMPPStanzas;
 	BoshWindowManager *boshWindowManager;
     BoshTransportState state;
-  
+    
     NSMutableSet *pendingHttpRequests;
 	MulticastDelegate <XMPPTransportDelegate> *multicastDelegate;
 }

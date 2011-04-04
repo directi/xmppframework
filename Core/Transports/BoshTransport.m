@@ -332,6 +332,15 @@
 	[requestPayload release];
 }
 
+- (void)sendTerminateRequest
+{
+    NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: @"terminate", @"type", nil];
+    NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: BODY_NS, @"", nil];
+    [self sendRequest:nil attributes:attr namespaces:ns responseHandler:@selector(disconnectSessionResponseHandler:) errorHandler:nil];
+    for ( ASIHTTPRequest *pendingRequest in pendingHttpRequests ) [pendingRequest clearDelegatesAndCancel];
+    [pendingHttpRequests removeAllObjects];
+}
+
 - (void)trySendingStanzas
 {
     if( [boshWindowManager canSendMoreRequests])
@@ -341,14 +350,8 @@
             [self sendRequest:pendingXMPPStanzas attributes:nil namespaces:nil responseHandler:nil errorHandler:nil];
             [pendingXMPPStanzas removeAllObjects];
         }
-        if( state == DISCONNECTING )
-        {
-            NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: @"terminate", @"type", nil];
-            NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: BODY_NS, @"", nil];
-            [self sendRequest:nil attributes:attr namespaces:ns responseHandler:@selector(disconnectSessionResponseHandler:) errorHandler:nil];
-        }
+        if( state == DISCONNECTING ) [self sendTerminateRequest];
 	}
-    
 }
 
 - (void)sendRequestsToHold
@@ -356,12 +359,7 @@
     while( [boshWindowManager canLetServerHoldRequests:[self.hold unsignedIntValue]] ) 
         [self sendRequest:nil attributes:nil namespaces:nil responseHandler:nil errorHandler:nil];
 
-    if( state == DISCONNECTING )
-    {
-        NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: @"terminate", @"type", nil];
-        NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: BODY_NS, @"", nil];
-        [self sendRequest:nil attributes:attr namespaces:ns responseHandler:@selector(disconnectSessionResponseHandler:) errorHandler:nil];
-    }
+    if( state == DISCONNECTING ) [self sendTerminateRequest];
 }
 
 /*
@@ -428,6 +426,7 @@
     NSLog(@"BOSH: RECD[%@", [self logRequestResponse:[request responseData]]);
     state = DISCONNECTED;
     [boshWindowManager release];
+    boshWindowManager = nil;
     [pendingXMPPStanzas removeAllObjects];
     nextRidToSend = [self generateRid];
     ack = [NSNumber numberWithInt:1];
@@ -437,9 +436,6 @@
     inactivity = [NSNumber numberWithInt:0];
     self.sid = nil;
     self.authid = nil;
-    for ( ASIHTTPRequest *pendingRequest in pendingHttpRequests )
-        [pendingRequest cancel];
-    [pendingHttpRequests removeAllObjects];
     [multicastDelegate transportDidDisconnect:self];
 }
 
