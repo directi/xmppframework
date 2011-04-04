@@ -337,8 +337,6 @@
     NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: @"terminate", @"type", nil];
     NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: BODY_NS, @"", nil];
     [self sendRequest:nil attributes:attr namespaces:ns responseHandler:@selector(disconnectSessionResponseHandler:) errorHandler:nil];
-    for ( ASIHTTPRequest *pendingRequest in pendingHttpRequests ) [pendingRequest clearDelegatesAndCancel];
-    [pendingHttpRequests removeAllObjects];
 }
 
 - (void)trySendingStanzas
@@ -424,6 +422,8 @@
 {
     NSLog(@"disconnectSessionResponseHandler");
     NSLog(@"BOSH: RECD[%@", [self logRequestResponse:[request responseData]]);
+    for ( ASIHTTPRequest *pendingRequest in pendingHttpRequests ) [pendingRequest clearDelegatesAndCancel];
+    [pendingHttpRequests removeAllObjects];
     state = DISCONNECTED;
     [boshWindowManager release];
     boshWindowManager = nil;
