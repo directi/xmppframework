@@ -21,7 +21,8 @@ typedef enum {
     CONNECTED = 0,
     CONNECTING = 1,
     DISCONNECTING = 2,
-    DISCONNECTED = 3
+    DISCONNECTED = 3,
+    TERMINATED = 4
 } BoshTransportState;
 
 @protocol BoshWindowProtocol
@@ -48,6 +49,7 @@ typedef enum {
 - (void)sentRequest:(NSXMLElement *)request;
 - (void)recievedResponse:(NSXMLElement *)response forRid:(long long)rid;
 - (BOOL)canSendMoreRequests;
+- (NSNumber *)maxRidReceived;
 - (BOOL)canLetServerHoldRequests:(long long)hold;
 - (NSXMLElement *)getRequestForRid:(long long)rid;
 - (id)initWithDelegate:(id)del rid:(long long)rid;
@@ -56,7 +58,6 @@ typedef enum {
 
 @interface BoshTransport : NSObject <XMPPTransportProtocol, BoshWindowProtocol > {
 	NSString *boshVersion;
-	NSNumber *ack;
 
 	NSString *content;
     NSString *STREAM_NS;
@@ -71,6 +72,7 @@ typedef enum {
     
     NSMutableSet *pendingHttpRequests;
 	MulticastDelegate <XMPPTransportDelegate> *multicastDelegate;
+    NSError *disconnectError_;
 }
 
 @property(retain) XMPPJID *myJID;
@@ -84,6 +86,7 @@ typedef enum {
 @property(copy) NSString *authid;
 @property(copy) NSString *sid;
 @property(copy) NSString *url;
+@property(readonly) NSError *disconnectError;
 
 /* init Methods */
 - (id)initWithUrl:(NSString *)url forDomain:(NSString *)host;
@@ -110,6 +113,7 @@ typedef enum {
 
 /* Methods used internally */
 - (BOOL)canConnect;
+- (void)handleTerminateInResponse:(NSXMLElement *)parsedResponse;
 - (NSString *)logRequestResponse:(NSData *)data;
 - (void)createSessionResponseHandler:(ASIHTTPRequest *)request;
 - (void)disconnectSessionResponseHandler:(ASIHTTPRequest *)request;

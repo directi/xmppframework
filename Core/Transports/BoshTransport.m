@@ -42,6 +42,11 @@
 @synthesize windowSize;
 @synthesize outstandingRequests;
 
+- (NSNumber *)maxRidReceived
+{
+    return [NSNumber numberWithLongLong:maxRidReceived];
+}
+
 - (long long)getRidInBody:(NSXMLElement *)body
 {
     return [[[body attributeForName:@"rid"] stringValue] longLongValue];
@@ -121,6 +126,7 @@
 @end
 
 @interface BoshTransport()
+@property(readwrite, assign) NSError *disconnectError;
 - (void)setInactivity:(NSString *)givenInactivity;
 - (void)setSecure:(NSString *)isSecure;
 - (void)setRequests:(NSString *)maxRequests;
@@ -141,6 +147,7 @@
 @synthesize secure;
 @synthesize authid;
 @synthesize requests;
+@synthesize disconnectError = disconnectError_;
 
 #pragma mark -
 #pragma mark Private Accessor Method Implementation
@@ -183,7 +190,6 @@
         content = [NSString stringWithFormat:@"text/xml; charset=utf-8"];
         wait_ = [[NSNumber alloc] initWithDouble:60.0];
         hold_ = [[NSNumber alloc] initWithInt:1];
-        ack = [NSNumber numberWithInt:1];
 
         nextRidToSend = [self generateRid];
         
@@ -201,7 +207,7 @@
         domain_ = [domain copy];
         myJID_ = nil;
         state = DISCONNECTED;
-        
+        disconnectError_ = nil;
         /* Keeping a random capacity right now */
         pendingXMPPStanzas = [[NSMutableArray alloc] initWithCapacity:25];
         pendingHttpRequests = [[NSMutableSet alloc] initWithCapacity:3];
@@ -312,8 +318,8 @@
 
 - (BOOL) createSession:(NSError **)error
 {
-    NSArray *keys = [NSArray arrayWithObjects:@"content", @"hold", @"to", @"ver", @"wait", @"ack", @"xml:lang", @"from", @"secure", nil];
-    NSArray *objects = [NSArray arrayWithObjects:content, self.hold, self.domain, boshVersion, self.wait, ack, self.lang, [self.myJID bare], @"false", nil];
+    NSArray *keys = [NSArray arrayWithObjects:@"content", @"hold", @"to", @"ver", @"wait", @"xml:lang", @"from", @"secure", @"inactivity", nil];
+    NSArray *objects = [NSArray arrayWithObjects:content, self.hold, self.domain, boshVersion, self.wait, self.lang, [self.myJID bare], @"false", @"10", nil];
     NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjects:[self convertToStrings:objects] forKeys:keys];
     NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: XMPP_NS, @"xmpp", nil];
     
@@ -382,13 +388,20 @@
 #pragma mark -
 #pragma mark HTTP Request Response
 
+/* 
+ handle terminate in session creation 
+ type = terminate sent with content = <find out>
+ use the sid of the request not response.
+*/
 - (void)createSessionResponseHandler:(ASIHTTPRequest *)request
 {
     NSLog(@"BOSH: RECD[%@", [self logRequestResponse:[request responseData]]);
-    state = CONNECTED;
     NSXMLElement *rootElement = [self parseXMLData:[request responseData]];
-	
+    
+    [self handleTerminateInResponse:rootElement];
+    
     NSArray *responseAttributes = [rootElement attributes];
+    
     /* Setting inactivity, sid, wait, hold, ack, lang, authid, secure, requests */
     for(NSXMLNode *attr in responseAttributes)
     {
@@ -405,12 +418,10 @@
     
 	boshWindowManager = [[BoshWindowManager alloc] initWithDelegate:self rid:[self getRidInRequest:rootElement]];
 	[boshWindowManager setWindowSize:[requests unsignedIntValue]];
-	
+	state = CONNECTED;
     [multicastDelegate transportDidConnect:self];
     [multicastDelegate transportDidStartNegotiation:self];
     
-    NSLog(@"%ud", [(NSXMLNode *)rootElement childCount]);
-    NSLog(@"root elemetn = %@", rootElement);
     if( [(NSXMLNode *)rootElement childCount] > 0 )
         [self broadcastStanzas:rootElement];
     
@@ -422,14 +433,20 @@
 {
     NSLog(@"disconnectSessionResponseHandler");
     NSLog(@"BOSH: RECD[%@", [self logRequestResponse:[request responseData]]);
-    for ( ASIHTTPRequest *pendingRequest in pendingHttpRequests ) [pendingRequest clearDelegatesAndCancel];
+    if(self.disconnectError)
+    {
+        [multicastDelegate transportWillDisconnect:self withError:self.disconnectError];
+        [disconnectError_ release];
+    }
+    for ( ASIHTTPRequest *pendingRequest in pendingHttpRequests ) 
+        if(pendingRequest != request) [pendingRequest clearDelegatesAndCancel];
+    
     [pendingHttpRequests removeAllObjects];
     state = DISCONNECTED;
     [boshWindowManager release];
     boshWindowManager = nil;
     [pendingXMPPStanzas removeAllObjects];
     nextRidToSend = [self generateRid];
-    ack = [NSNumber numberWithInt:1];
     self.hold = [NSNumber numberWithInt:1];
     self.wait = [NSNumber numberWithDouble:60.0];
     [inactivity release];
@@ -437,17 +454,49 @@
     self.sid = nil;
     self.authid = nil;
     [multicastDelegate transportDidDisconnect:self];
+    NSLog(@"Disconnect handler completed");
 }
 
-/* Should call processRequestQueue after some timeOut */
+- (void)handleTerminateInResponse:(NSXMLElement *)parsedResponse
+{
+    NSXMLNode *typeAttribute = [parsedResponse attributeForName:@"type"];
+    if( typeAttribute != nil && [[typeAttribute stringValue] isEqualToString:@"terminate"] ) 
+    {
+        disconnectError_ = [[NSError alloc] initWithDomain:[[parsedResponse attributeForName:@"condition"] stringValue] code:1 userInfo:nil];
+        state = TERMINATED;
+    }
+}
+
+/* 
+ Should call processRequestQueue after some timeOut 
+ Handle terminate response sent in any request.
+ */
 - (void)requestFinished:(ASIHTTPRequest *)request
 {
-    NSLog(@"BOSH: RECD[%@", [self logRequestResponse:[request responseData]]);
-    NSString *postBodyString = [[NSString alloc] initWithData:[request postBody] encoding:NSUTF8StringEncoding];
+    NSData *responseData = [request responseData];
+    NSLog(@"BOSH: RECD[%@", [self logRequestResponse:responseData]);
     [pendingHttpRequests removeObject:request];
+    NSXMLElement *parsedResponse = [self parseXMLData:responseData];
+    
+    [self handleTerminateInResponse:parsedResponse]; 
+    
+    NSString *postBodyString = [[NSString alloc] initWithData:[request postBody] encoding:NSUTF8StringEncoding];
     NSXMLElement *postBody = [[NSXMLElement alloc] initWithXMLString:postBodyString error:nil];
-    [boshWindowManager recievedResponse:[self parseXMLData:[request responseData]] forRid:[self getRidInRequest:postBody]];
-    [self sendRequestsToHold];
+    [boshWindowManager recievedResponse:parsedResponse forRid:[self getRidInRequest:postBody]];
+    
+    if(state == TERMINATED) [self disconnectSessionResponseHandler:request];
+    else [self sendRequestsToHold];
+        
+    [postBody release];
+    [postBodyString release];
+}
+
+- (void)resendRequest:(ASIHTTPRequest *)request
+{
+    
+    [self sendHTTPRequestWithBody:[self parseXMLData:[request postBody]] 
+                  responseHandler:[request didFinishSelector]
+                     errorHandler:[request didFailSelector]];
 }
 
 /* Not sending terminate request to the server - just disconnecting */
@@ -456,14 +505,17 @@
     if( ![self isConnected] ) return ;
     NSError *error = [request error];
     NSLog(@"BOSH: Request Failed[%@", [self logRequestResponse:[request postBody]]);
-    if ( [error code] == ASIRequestTimedOutErrorType || [error code] == ASIConnectionFailureErrorType )
-    {
-        [request startSynchronous];
+    NSLog(@"Failure HTTP code = %d, domain = %@", [request responseStatusCode],[[request error] domain]);
+    if( [error code] == ASIRequestTimedOutErrorType || [error code] == ASIConnectionFailureErrorType ) {
+        NSLog(@"Resending the request");
+        [pendingHttpRequests removeObject:request];
+        [self resendRequest:request];
     }
     else 
     {
+        NSLog(@"disconnecting due to request failure");
         [multicastDelegate transportWillDisconnect:self withError:error];
-        [self disconnectSessionResponseHandler:nil];
+        [self disconnectSessionResponseHandler:request];
     }
 }
 
@@ -495,7 +547,15 @@
 	
     /* Adding sid attribute on every outgoing request */
     if( self.sid ) [attributes setValue:self.sid forKey:@"sid"];
-	
+    
+    /* Adding ack attribute on every outgoing request */
+	if( boshWindowManager != nil ) {
+        NSNumber *ack = [boshWindowManager maxRidReceived];
+        if( [ack longLongValue] != nextRidToSend - 1) [attributes setValue:[ack stringValue] forKey:@"ack"];
+        
+    }
+    else [attributes setValue:@"1" forKey:@"ack"];
+    
     [attributes setValue:[NSString stringWithFormat:@"%d", nextRidToSend] forKey:@"rid"];
 	
     /* Adding the BODY_NS namespace on every outgoing request */
