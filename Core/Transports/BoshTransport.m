@@ -407,10 +407,30 @@
     NSXMLNode *typeAttribute = [parsedResponse attributeForName:@"type"];
     if( typeAttribute != nil && [[typeAttribute stringValue] isEqualToString:@"terminate"] ) 
     {
-        NSString *condition = [[parsedResponse attributeForName:@"condition"] stringValue];
-        if( [condition isEqualToString:@""] )
-            
-        disconnectError_ = [[NSError alloc] initWithDomain:[[parsedResponse attributeForName:@"condition"] stringValue] code:1 userInfo:nil];
+        NSXMLNode *conditionNode = [parsedResponse attributeForName:@"condition"];
+        if(conditionNode != nil) 
+        {
+            NSString *condition = [conditionNode stringValue];
+            if( [condition isEqualToString:@"host-unknown"] )
+                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" code:HOST_UNKNOWN userInfo:nil];
+            else if ( [condition isEqualToString:@"host-gone"] ) 
+                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" code:HOST_GONE userInfo:nil];
+            else if( [condition isEqualToString:@"item-not-found"] )
+                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" code:ITEM_NOT_FOUND userInfo:nil];
+            else if ( [condition isEqualToString:@"policy-violation"] ) 
+                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" code:POLICY_VIOLATION userInfo:nil];
+            else if( [condition isEqualToString:@"remote-connection-failed"] )
+                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" code:REMOTE_CONNECTION_FAILED userInfo:nil];
+            else if ( [condition isEqualToString:@"bad-request"] ) 
+                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" code:BAD_REQUEST userInfo:nil];
+            else if( [condition isEqualToString:@"internal-server-error"] )
+                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" code:INTERNAL_SERVER_ERROR userInfo:nil];
+            else if ( [condition isEqualToString:@"remote-stream-error"] ) 
+                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" code:REMOTE_STREAM_ERROR userInfo:nil];
+            else if ( [condition isEqualToString:@"undefined-condition"] ) 
+                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" code:UNDEFINED_CONDITION userInfo:nil];
+            else NSAssert( false, @"Terminate Condition Not Valid");
+        }
         state = TERMINATED;
     }
     else if( !self.sid )
@@ -443,7 +463,7 @@
 - (void)disconnectSessionResponseHandler:(ASIHTTPRequest *)request
 {
     NSLog(@"disconnectSessionResponseHandler");
-    if(self.disconnectError)
+    if(self.disconnectError != nil)
     {
         [multicastDelegate transportWillDisconnect:self withError:self.disconnectError];
         [disconnectError_ release];

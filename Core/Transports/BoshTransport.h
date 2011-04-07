@@ -30,15 +30,15 @@ typedef enum {
  */
 
 typedef enum {
-    HOST_UNKNOWN = 0,
-    HOST_GONE = 1,
-    ITEM_NOT_FOUND = 2,
-    POLICY_VIOLATION = 3,
-    REMOTE_CONNECTION_FAILED = 4,
-    BAD_REQUEST = 5,
-    INTERNAL_SERVER_ERROR = 6,
-    REMOTE_STREAM_ERROR = 7,
-    UNDEFINED_CONDITION = 8
+    HOST_UNKNOWN = 1,
+    HOST_GONE = 2,
+    ITEM_NOT_FOUND = 3,
+    POLICY_VIOLATION = 4,
+    REMOTE_CONNECTION_FAILED = 5,
+    BAD_REQUEST = 6,
+    INTERNAL_SERVER_ERROR = 7,
+    REMOTE_STREAM_ERROR = 8,
+    UNDEFINED_CONDITION = 9
 } BoshTerminateConditions;
 
 typedef enum {
