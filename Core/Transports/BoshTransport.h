@@ -17,6 +17,30 @@ typedef enum {
     NAMESPACE_TYPE = 1
 } XMLNodeType;
 
+/*
+ host-unknown
+ host-gone
+ item-not-found
+ policy-violation
+ remote-connection-failed
+ bad-request
+ internal-server-error
+ remote-stream-error
+ undefined-condition
+ */
+
+typedef enum {
+    HOST_UNKNOWN = 0,
+    HOST_GONE = 1,
+    ITEM_NOT_FOUND = 2,
+    POLICY_VIOLATION = 3,
+    REMOTE_CONNECTION_FAILED = 4,
+    BAD_REQUEST = 5,
+    INTERNAL_SERVER_ERROR = 6,
+    REMOTE_STREAM_ERROR = 7,
+    UNDEFINED_CONDITION = 8
+} BoshTerminateConditions;
+
 typedef enum {
     CONNECTED = 0,
     CONNECTING = 1,
@@ -113,18 +137,18 @@ typedef enum {
 
 /* Methods used internally */
 - (BOOL)canConnect;
-- (void)handleTerminateInResponse:(NSXMLElement *)parsedResponse;
+- (void)handleAttributesInResponse:(NSXMLElement *)parsedResponse;
 - (NSString *)logRequestResponse:(NSData *)data;
-- (void)createSessionResponseHandler:(ASIHTTPRequest *)request;
+- (void)createSessionResponseHandler:(NSXMLElement *)parsedResponse;
 - (void)disconnectSessionResponseHandler:(ASIHTTPRequest *)request;
 - (long long)generateRid;
 - (NSArray *)convertToStrings:(NSArray *)array;
 - (SEL)setterForProperty:(NSString *)property;
 - (NSNumber *)numberFromString:(NSString *)stringNumber;
-- (void)sendHTTPRequestWithBody:(NSXMLElement *)body responseHandler:(SEL)responseHandler errorHandler:(SEL)errorHandler;
+- (void)sendHTTPRequestWithBody:(NSXMLElement *)body;
 - (void)broadcastStanzas:(NSXMLNode *)node;
 - (void)trySendingStanzas;
-- (void)sendRequest:(NSArray *)bodyPayload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces responseHandler:(SEL)responseHandler errorHandler:(SEL)errorHandler;
+- (void)makeBodyAndSendHTTPRequestWithPayload:(NSArray *)bodyPayload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces;
 - (long long)getRidInRequest:(NSXMLElement *)body;
 - (NSXMLElement *)newBodyElementWithPayload:(NSArray *)payload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces;
 - (NSArray *)createXMLNodeArrayFromDictionary:(NSDictionary *)dict ofType:(XMLNodeType)type;

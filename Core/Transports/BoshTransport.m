@@ -19,7 +19,8 @@
 
 - (id) initWithRequest:(NSXMLElement *)request response:(NSXMLElement *)response
 {
-	if( (self = [super init]) ) {
+	if( (self = [super init]) ) 
+    {
 		request_ = request;
 		response_ = response;
 	}
@@ -63,7 +64,6 @@
 	{
 		window = [[NSMutableDictionary alloc] initWithCapacity:4];
 		windowSize = 0;
-		outstandingRequests = 0;
 		maxRidSent = rid;
 		maxRidReceived = rid;
 		delegate = del;
@@ -162,6 +162,7 @@
 - (void)setRequests:(NSString *)requestsString
 {
     NSNumber *maxRequests = [self numberFromString:requestsString];
+    [boshWindowManager setWindowSize:[maxRequests longLongValue]];
     [requests autorelease];
     requests = [maxRequests retain];
 }
@@ -208,9 +209,13 @@
         myJID_ = nil;
         state = DISCONNECTED;
         disconnectError_ = nil;
+        
         /* Keeping a random capacity right now */
         pendingXMPPStanzas = [[NSMutableArray alloc] initWithCapacity:25];
         pendingHttpRequests = [[NSMutableSet alloc] initWithCapacity:3];
+        
+        boshWindowManager = [[BoshWindowManager alloc] initWithDelegate:self rid:(nextRidToSend - 1)];
+        [boshWindowManager setWindowSize:1];
     }
     return self;
 }
@@ -241,10 +246,9 @@
         return ;
     }
     NSLog(@"Bosh: Will Restart Stream");
-    NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: self.lang, @"xml:lang", @"true", @"xmpp:restart", nil];
+    NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: @"true", @"xmpp:restart", nil];
     NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys:XMPP_NS, @"xmpp", nil];
-    
-    [self sendRequest:nil attributes:attr namespaces:ns responseHandler:nil errorHandler:nil];
+    [self makeBodyAndSendHTTPRequestWithPayload:nil attributes:attr namespaces:ns];
 }
 
 - (void)disconnect
@@ -257,7 +261,6 @@
     NSLog(@"Bosh: Will Terminate Session");
     state = DISCONNECTING;
     [multicastDelegate transportWillDisconnect:self];
-
 }
 
 - (BOOL)sendStanza:(NSXMLElement *)stanza
@@ -316,25 +319,24 @@
     return YES;
 }
 
-- (BOOL) createSession:(NSError **)error
+- (BOOL)createSession:(NSError **)error
 {
-    NSArray *keys = [NSArray arrayWithObjects:@"content", @"hold", @"to", @"ver", @"wait", @"xml:lang", @"from", @"secure", @"inactivity", nil];
-    NSArray *objects = [NSArray arrayWithObjects:content, self.hold, self.domain, boshVersion, self.wait, self.lang, [self.myJID bare], @"false", @"10", nil];
+    NSArray *keys = [NSArray arrayWithObjects:@"content", @"hold", @"to", @"ver", @"wait", @"from", @"secure", @"inactivity", nil];
+    NSArray *objects = [NSArray arrayWithObjects:content, self.hold, self.domain, boshVersion, self.wait, [self.myJID bare], @"false", @"10", nil];
     NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjects:[self convertToStrings:objects] forKeys:keys];
     NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: XMPP_NS, @"xmpp", nil];
     
-    NSXMLElement *requestPayload = [self newBodyElementWithPayload:nil attributes:attr namespaces:ns];
-    [self sendHTTPRequestWithBody:requestPayload responseHandler:@selector(createSessionResponseHandler:) errorHandler:nil];
-    [requestPayload release];
+    [self makeBodyAndSendHTTPRequestWithPayload:nil attributes:attr namespaces:ns];
+    
     return YES;
 }
 
-- (void)sendRequest:(NSArray *)bodyPayload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces responseHandler:(SEL)responseHandler errorHandler:(SEL)errorHandler
+- (void)makeBodyAndSendHTTPRequestWithPayload:(NSArray *)bodyPayload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces
 {
 	NSXMLElement *requestPayload = [self newBodyElementWithPayload:bodyPayload attributes:attributes namespaces:namespaces];
     NSLog(@"request paylaod = %@", requestPayload);
 	[boshWindowManager sentRequest:requestPayload];
-    [self sendHTTPRequestWithBody:requestPayload responseHandler:responseHandler errorHandler:errorHandler];
+    [self sendHTTPRequestWithBody:requestPayload];
 	[requestPayload release];
 }
 
@@ -342,28 +344,29 @@
 {
     NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: @"terminate", @"type", nil];
     NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: BODY_NS, @"", nil];
-    [self sendRequest:nil attributes:attr namespaces:ns responseHandler:@selector(disconnectSessionResponseHandler:) errorHandler:nil];
+    [self makeBodyAndSendHTTPRequestWithPayload:nil attributes:attr namespaces:ns];
 }
 
 - (void)trySendingStanzas
 {
-    if( [boshWindowManager canSendMoreRequests])
-	{
-        if ([pendingXMPPStanzas count] > 0 )
+    if( [boshWindowManager canSendMoreRequests]) 
+    {
+        if([pendingXMPPStanzas count] > 0)
         {
-            [self sendRequest:pendingXMPPStanzas attributes:nil namespaces:nil responseHandler:nil errorHandler:nil];
+            [self makeBodyAndSendHTTPRequestWithPayload:pendingXMPPStanzas attributes:nil namespaces:nil];
             [pendingXMPPStanzas removeAllObjects];
         }
-        if( state == DISCONNECTING ) [self sendTerminateRequest];
-	}
+        else if(state == DISCONNECTING) 
+            [self sendTerminateRequest];
+    }
 }
 
 - (void)sendRequestsToHold
 {
-    while( [boshWindowManager canLetServerHoldRequests:[self.hold unsignedIntValue]] ) 
-        [self sendRequest:nil attributes:nil namespaces:nil responseHandler:nil errorHandler:nil];
-
-    if( state == DISCONNECTING ) [self sendTerminateRequest];
+    while( [boshWindowManager canLetServerHoldRequests:[self.hold unsignedIntValue]] && state == CONNECTED) 
+    {
+        [self makeBodyAndSendHTTPRequestWithPayload:nil attributes:nil namespaces:nil];
+    }
 }
 
 /*
@@ -388,21 +391,37 @@
 #pragma mark -
 #pragma mark HTTP Request Response
 
-/* 
- handle terminate in session creation 
- type = terminate sent with content = <find out>
- use the sid of the request not response.
-*/
-- (void)createSessionResponseHandler:(ASIHTTPRequest *)request
+/*
+ host-unknown
+ host-gone
+ item-not-found
+ policy-violation
+ remote-connection-failed
+ bad-request
+ internal-server-error
+ remote-stream-error
+ undefined-condition
+ */
+- (void)handleAttributesInResponse:(NSXMLElement *)parsedResponse
 {
-    NSLog(@"BOSH: RECD[%@", [self logRequestResponse:[request responseData]]);
-    NSXMLElement *rootElement = [self parseXMLData:[request responseData]];
+    NSXMLNode *typeAttribute = [parsedResponse attributeForName:@"type"];
+    if( typeAttribute != nil && [[typeAttribute stringValue] isEqualToString:@"terminate"] ) 
+    {
+        NSString *condition = [[parsedResponse attributeForName:@"condition"] stringValue];
+        if( [condition isEqualToString:@""] )
+            
+        disconnectError_ = [[NSError alloc] initWithDomain:[[parsedResponse attributeForName:@"condition"] stringValue] code:1 userInfo:nil];
+        state = TERMINATED;
+    }
+    else if( !self.sid )
+        [self createSessionResponseHandler:parsedResponse];
+}
+
+- (void)createSessionResponseHandler:(NSXMLElement *)parsedResponse
+{
+    NSArray *responseAttributes = [parsedResponse attributes];
     
-    [self handleTerminateInResponse:rootElement];
-    
-    NSArray *responseAttributes = [rootElement attributes];
-    
-    /* Setting inactivity, sid, wait, hold, ack, lang, authid, secure, requests */
+    /* Setting inactivity, sid, wait, hold, lang, authid, secure, requests */
     for(NSXMLNode *attr in responseAttributes)
     {
         NSString *attrName = [attr name];
@@ -416,23 +435,14 @@
     /* Not doing anything with namespaces right now - because chirkut doesn't send it */
     //NSArray *responseNamespaces = [rootElement namespaces];
     
-	boshWindowManager = [[BoshWindowManager alloc] initWithDelegate:self rid:[self getRidInRequest:rootElement]];
-	[boshWindowManager setWindowSize:[requests unsignedIntValue]];
 	state = CONNECTED;
     [multicastDelegate transportDidConnect:self];
     [multicastDelegate transportDidStartNegotiation:self];
-    
-    if( [(NSXMLNode *)rootElement childCount] > 0 )
-        [self broadcastStanzas:rootElement];
-    
-    /* should we send these requests after a delay?? */
-    [self sendRequestsToHold];
 }
 
 - (void)disconnectSessionResponseHandler:(ASIHTTPRequest *)request
 {
     NSLog(@"disconnectSessionResponseHandler");
-    NSLog(@"BOSH: RECD[%@", [self logRequestResponse:[request responseData]]);
     if(self.disconnectError)
     {
         [multicastDelegate transportWillDisconnect:self withError:self.disconnectError];
@@ -442,10 +452,10 @@
         if(pendingRequest != request) [pendingRequest clearDelegatesAndCancel];
     
     [pendingHttpRequests removeAllObjects];
-    state = DISCONNECTED;
-    [boshWindowManager release];
-    boshWindowManager = nil;
     [pendingXMPPStanzas removeAllObjects];
+    
+    state = DISCONNECTED;
+    
     nextRidToSend = [self generateRid];
     self.hold = [NSNumber numberWithInt:1];
     self.wait = [NSNumber numberWithDouble:60.0];
@@ -453,19 +463,13 @@
     inactivity = [NSNumber numberWithInt:0];
     self.sid = nil;
     self.authid = nil;
+    [boshWindowManager release];
+    boshWindowManager = [[BoshWindowManager alloc] initWithDelegate:self rid:(nextRidToSend - 1)];
+    [boshWindowManager setWindowSize:1];
+    
     [multicastDelegate transportDidDisconnect:self];
-    NSLog(@"Disconnect handler completed");
 }
 
-- (void)handleTerminateInResponse:(NSXMLElement *)parsedResponse
-{
-    NSXMLNode *typeAttribute = [parsedResponse attributeForName:@"type"];
-    if( typeAttribute != nil && [[typeAttribute stringValue] isEqualToString:@"terminate"] ) 
-    {
-        disconnectError_ = [[NSError alloc] initWithDomain:[[parsedResponse attributeForName:@"condition"] stringValue] code:1 userInfo:nil];
-        state = TERMINATED;
-    }
-}
 
 /* 
  Should call processRequestQueue after some timeOut 
@@ -478,25 +482,20 @@
     [pendingHttpRequests removeObject:request];
     NSXMLElement *parsedResponse = [self parseXMLData:responseData];
     
-    [self handleTerminateInResponse:parsedResponse]; 
+    [self handleAttributesInResponse:parsedResponse]; 
     
     NSString *postBodyString = [[NSString alloc] initWithData:[request postBody] encoding:NSUTF8StringEncoding];
     NSXMLElement *postBody = [[NSXMLElement alloc] initWithXMLString:postBodyString error:nil];
     [boshWindowManager recievedResponse:parsedResponse forRid:[self getRidInRequest:postBody]];
     
     if(state == TERMINATED) [self disconnectSessionResponseHandler:request];
-    else [self sendRequestsToHold];
+    else {
+        [self trySendingStanzas];
+        [self sendRequestsToHold];
+    }
         
     [postBody release];
     [postBodyString release];
-}
-
-- (void)resendRequest:(ASIHTTPRequest *)request
-{
-    
-    [self sendHTTPRequestWithBody:[self parseXMLData:[request postBody]] 
-                  responseHandler:[request didFinishSelector]
-                     errorHandler:[request didFailSelector]];
 }
 
 /* Not sending terminate request to the server - just disconnecting */
@@ -504,12 +503,13 @@
 {
     if( ![self isConnected] ) return ;
     NSError *error = [request error];
+    [pendingHttpRequests removeObject:request];
+    
     NSLog(@"BOSH: Request Failed[%@", [self logRequestResponse:[request postBody]]);
-    NSLog(@"Failure HTTP code = %d, domain = %@", [request responseStatusCode],[[request error] domain]);
+    NSLog(@"Failure HTTP statusCode = %d, error domain = %@, error code = %d", [request responseStatusCode],[[request error] domain], [[request error] code]);
     if( [error code] == ASIRequestTimedOutErrorType || [error code] == ASIConnectionFailureErrorType ) {
         NSLog(@"Resending the request");
-        [pendingHttpRequests removeObject:request];
-        [self resendRequest:request];
+        [self sendHTTPRequestWithBody:[self parseXMLData:[request postBody]]];
     }
     else 
     {
@@ -519,7 +519,7 @@
     }
 }
 
-- (void)sendHTTPRequestWithBody:(NSXMLElement *)body responseHandler:(SEL)responseHandler errorHandler:(SEL)errorHandler
+- (void)sendHTTPRequestWithBody:(NSXMLElement *)body 
 {
     NSURL *url = [NSURL URLWithString:self.url];
     ASIHTTPRequest *request = [ASIHTTPRequest requestWithURL:url];
@@ -528,11 +528,8 @@
     [request setTimeOutSeconds:[self.wait doubleValue]+4];
     
     if(body) [request appendPostData:[[body compactXMLString] dataUsingEncoding:NSUTF8StringEncoding]];
-    if(responseHandler) [request setDidFinishSelector:responseHandler];
-    if(errorHandler) [request setDidFailSelector:errorHandler];
-    
-    [request startAsynchronous];
     [pendingHttpRequests addObject:request];
+    [request startAsynchronous];
     NSLog(@"BOSH: SEND[%@", [self logRequestResponse:[request postBody]]);
     return;
 }
@@ -544,15 +541,12 @@
 {
     attributes = attributes?attributes:[NSMutableDictionary dictionaryWithCapacity:3];
     namespaces = namespaces?namespaces:[NSMutableDictionary dictionaryWithCapacity:1];
-	
-    /* Adding sid attribute on every outgoing request */
-    if( self.sid ) [attributes setValue:self.sid forKey:@"sid"];
     
-    /* Adding ack attribute on every outgoing request */
-	if( boshWindowManager != nil ) {
+    /* Adding ack and sid attribute on every outgoing request after sid is created */
+	if( self.sid ) {
+        [attributes setValue:self.sid forKey:@"sid"];
         NSNumber *ack = [boshWindowManager maxRidReceived];
         if( [ack longLongValue] != nextRidToSend - 1) [attributes setValue:[ack stringValue] forKey:@"ack"];
-        
     }
     else [attributes setValue:@"1" forKey:@"ack"];
     
