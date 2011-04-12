@@ -261,6 +261,7 @@
     NSLog(@"Bosh: Will Terminate Session");
     state = DISCONNECTING;
     [multicastDelegate transportWillDisconnect:self];
+    if ( [boshWindowManager canSendMoreRequests] ) [self trySendingStanzas];
 }
 
 - (BOOL)sendStanza:(NSXMLElement *)stanza
@@ -334,7 +335,7 @@
 - (void)makeBodyAndSendHTTPRequestWithPayload:(NSArray *)bodyPayload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces
 {
 	NSXMLElement *requestPayload = [self newBodyElementWithPayload:bodyPayload attributes:attributes namespaces:namespaces];
-    NSLog(@"request paylaod = %@", requestPayload);
+    //NSLog(@"request paylaod = %@", requestPayload);
 	[boshWindowManager sentRequest:requestPayload];
     [self sendHTTPRequestWithBody:requestPayload];
 	[requestPayload release];
@@ -356,17 +357,14 @@
             [self makeBodyAndSendHTTPRequestWithPayload:pendingXMPPStanzas attributes:nil namespaces:nil];
             [pendingXMPPStanzas removeAllObjects];
         }
-        else if(state == DISCONNECTING) 
-            [self sendTerminateRequest];
+        else if(state == DISCONNECTING) [self sendTerminateRequest];
     }
 }
 
 - (void)sendRequestsToHold
 {
     while( [boshWindowManager canLetServerHoldRequests:[self.hold unsignedIntValue]] && state == CONNECTED) 
-    {
         [self makeBodyAndSendHTTPRequestWithPayload:nil attributes:nil namespaces:nil];
-    }
 }
 
 /*
@@ -382,7 +380,7 @@
         
         if([node level] == level + 1)
         {
-            NSLog(@"BOSH: Passing to delegates the stanza = %@", node);
+            //NSLog(@"BOSH: Passing to delegates the stanza = %@", node);
             [multicastDelegate transport:self didReceiveStanza:[(NSXMLElement *)node copy]];
         }
     }
@@ -467,6 +465,7 @@
     {
         [multicastDelegate transportWillDisconnect:self withError:self.disconnectError];
         [disconnectError_ release];
+        self.disconnectError = nil;
     }
     for ( ASIHTTPRequest *pendingRequest in pendingHttpRequests ) 
         if(pendingRequest != request) [pendingRequest clearDelegatesAndCancel];
@@ -498,14 +497,15 @@
 - (void)requestFinished:(ASIHTTPRequest *)request
 {
     NSData *responseData = [request responseData];
-    NSLog(@"BOSH: RECD[%@", [self logRequestResponse:responseData]);
+    NSString *postBodyString = [[NSString alloc] initWithData:[request postBody] encoding:NSUTF8StringEncoding];
+    NSXMLElement *postBody = [[NSXMLElement alloc] initWithXMLString:postBodyString error:nil];
+    long long rid = [self getRidInRequest:postBody];
+    
+    NSLog(@"BOSH: RECD[%qi] = %@", rid, [request responseString]);
     [pendingHttpRequests removeObject:request];
     NSXMLElement *parsedResponse = [self parseXMLData:responseData];
     
     [self handleAttributesInResponse:parsedResponse]; 
-    
-    NSString *postBodyString = [[NSString alloc] initWithData:[request postBody] encoding:NSUTF8StringEncoding];
-    NSXMLElement *postBody = [[NSXMLElement alloc] initWithXMLString:postBodyString error:nil];
     [boshWindowManager recievedResponse:parsedResponse forRid:[self getRidInRequest:postBody]];
     
     if(state == TERMINATED) [self disconnectSessionResponseHandler:request];
