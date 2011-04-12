@@ -95,6 +95,8 @@ typedef enum {
     BoshTransportState state;
     
     NSMutableSet *pendingHttpRequests;
+    NSMutableDictionary *retryCountForPendingRequests;
+    
 	MulticastDelegate <XMPPTransportDelegate> *multicastDelegate;
     NSError *disconnectError_;
 }
@@ -146,6 +148,7 @@ typedef enum {
 - (SEL)setterForProperty:(NSString *)property;
 - (NSNumber *)numberFromString:(NSString *)stringNumber;
 - (void)sendHTTPRequestWithBody:(NSXMLElement *)body;
+- (void)sendHTTPRequestWithBody:(NSXMLElement *)body retriedTimes:(NSInteger)times;
 - (void)broadcastStanzas:(NSXMLNode *)node;
 - (void)trySendingStanzas;
 - (void)makeBodyAndSendHTTPRequestWithPayload:(NSArray *)bodyPayload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces;
