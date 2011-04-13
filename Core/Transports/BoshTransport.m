@@ -10,6 +10,55 @@
 #import "DDXML.h"
 #import "NSXMLElementAdditions.h"
 
+@interface NSMutableSet(BoshTransport)
+- (void)addLongLong:(long long)number;
+- (void)removeLongLong:(long long)number;
+- (BOOL)containsLongLong:(long long)number;
+@end
+
+@interface NSMutableDictionary(BoshTransport) 
+- (void)setObject:(id)anObject forLongLongKey:(long long)number;
+- (void)removeObjectForLongLongKey:(long long)number;
+- (id)objectForLongLongKey:(long long)number;
+@end
+
+@implementation NSMutableSet(BoshTransport)
+- (void)addLongLong:(long long)number 
+{
+    NSNumber *nsNumber = [NSNumber numberWithLongLong:number];
+    [self addObject:nsNumber];
+}
+- (void)removeLongLong:(long long)number
+{
+    NSNumber *nsNumber = [NSNumber numberWithLongLong:number];
+    [self removeObject:nsNumber];
+}
+- (BOOL)containsLongLong:(long long)number
+{
+    NSNumber *nsNumber = [NSNumber numberWithLongLong:number];
+    return [self containsObject:nsNumber];
+}
+@end
+
+@implementation NSMutableDictionary(BoshTransport)
+- (void)setObject:(id)anObject forLongLongKey:(long long)number 
+{
+    NSNumber *nsNumber = [NSNumber numberWithLongLong:number];
+    [self setObject:anObject forKey:nsNumber];
+}
+
+- (void)removeObjectForLongLongKey:(long long)number 
+{
+    NSNumber *nsNumber = [NSNumber numberWithLongLong:number];
+    [self removeObjectForKey:nsNumber];
+}
+- (id)objectForLongLongKey:(long long)number
+{
+    NSNumber *nsNumber = [NSNumber numberWithLongLong:number];
+    return [self objectForKey:nsNumber];
+}
+@end
+
 #pragma -
 #pragma RequestResponsePair Class
 @implementation RequestResponsePair
@@ -41,86 +90,51 @@
 @implementation BoshWindowManager
 
 @synthesize windowSize;
-@synthesize outstandingRequests;
+@synthesize maxRidReceived;
 
-- (NSNumber *)maxRidReceived
-{
-    return [NSNumber numberWithLongLong:maxRidReceived];
-}
-
-- (long long)getRidInBody:(NSXMLElement *)body
-{
-    return [[[body attributeForName:@"rid"] stringValue] longLongValue];
-}
-
-- (NSString *)stringFromInt:(long long)num
-{
-	return [NSString stringWithFormat:@"%qi",num];
-}
-
-- (id)initWithDelegate:(id)del rid:(long long)rid
+- (id)initWithRid:(long long)rid
 {
 	if((self = [super init]))
 	{
-		window = [[NSMutableDictionary alloc] initWithCapacity:4];
 		windowSize = 0;
 		maxRidSent = rid;
 		maxRidReceived = rid;
-		delegate = del;
+        receivedRids = [[NSMutableSet alloc] initWithCapacity:2];
 	}
 	return self;
 }
 
-- (void)sentRequest:(NSXMLElement *)request
+- (void)sentRequestForRid:(long long)rid
 {
-	NSAssert( [self canSendMoreRequests], @"Sending request when should not be: Exceeding request count" );
-	long long requestRid = [self getRidInBody:request];
-	NSAssert ( requestRid == maxRidSent + 1, @"Sending request with rid = %qi greater than expected rid = %qi", requestRid, maxRidSent + 1);
+	NSAssert( ![self isWindowFull], @"Sending request when should not be: Exceeding request count" );
+	NSAssert ( rid == maxRidSent + 1, @"Sending request with rid = %qi greater than expected rid = %qi", rid, maxRidSent + 1);
 	++maxRidSent;
-	[window setValue:[[RequestResponsePair alloc] initWithRequest:request response:nil]  forKey:[self stringFromInt:requestRid]];
 }
 
-- (void)processResponses
-{
-	while (true)
-	{
-		RequestResponsePair *requestResponsePair = [window valueForKey:[self stringFromInt:(maxRidReceived+1)]];
-		if( requestResponsePair.response == nil ) break;
-		[[requestResponsePair.response retain] autorelease];
-		[window removeObjectForKey:[ self stringFromInt:(maxRidReceived + 1) ]];
-		++maxRidReceived;
-		[delegate broadcastStanzas:requestResponsePair.response];
-	}
-}
-
-- (void)recievedResponse:(NSXMLElement *)response forRid:(long long)rid
+- (void)recievedResponseForRid:(long long)rid
 {
 	NSAssert(rid > maxRidReceived, @"Recieving response for rid = %qi where maxRidReceived = %qi", rid, maxRidReceived);
 	NSAssert(rid <= maxRidReceived + windowSize, @"Recieved response for a request outside the rid window. responseRid = %qi, maxRidReceived = %qi, windowSize = %qi", rid, maxRidReceived, windowSize);
-	RequestResponsePair *requestResponsePair = [window valueForKey:[self stringFromInt:rid]];
-	NSAssert( requestResponsePair != nil, @"Response rid not in queue");
-	requestResponsePair.response = response;
-	[self processResponses];
+    [receivedRids addLongLong:rid];
+	while ( [receivedRids containsLongLong:(maxRidReceived + 1)] )
+	{
+		++maxRidReceived;
+	}
 }
 
-- (BOOL)canSendMoreRequests
+- (BOOL)isWindowFull
 {
-	return (maxRidSent - maxRidReceived) < windowSize;
+	return (maxRidSent - maxRidReceived) == windowSize;
 }
 
-- (BOOL)canLetServerHoldRequests:(long long)hold
+- (BOOL)isWindowEmpty
 {
-	return (maxRidSent - maxRidReceived) < hold;
-}
-- (NSXMLElement *)getRequestForRid:(long long)rid
-{
-	NSAssert( rid - maxRidReceived > 0 && [window count] > (rid - maxRidReceived), @"Error Access request for rid = %qi, where maxRidReceived = %qi and [requestQueue count] = %qi", rid, maxRidReceived, [window count]);
-	return [window valueForKey:[self stringFromInt:rid]];
+	return (maxRidSent - maxRidReceived) < 1;
 }
 
 - (void) dealloc
 {
-    [window release];
+    [receivedRids release];
     [super dealloc];
 }
 @end
@@ -196,6 +210,7 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
         hold_ = [[NSNumber alloc] initWithInt:1];
 
         nextRidToSend = [self generateRid];
+        maxRidProcessed = nextRidToSend - 1;
         
         multicastDelegate = [[MulticastDelegate alloc] init];
         if( delegate != nil ) [multicastDelegate addDelegate:delegate];
@@ -215,10 +230,10 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
 
         /* Keeping a random capacity right now */
         pendingXMPPStanzas = [[NSMutableArray alloc] initWithCapacity:25];
-        pendingHttpRequests = [[NSMutableSet alloc] initWithCapacity:3];
+        requestResponsePairs = [[NSMutableDictionary alloc] initWithCapacity:3];
         retryCounter = 0;
         
-        boshWindowManager = [[BoshWindowManager alloc] initWithDelegate:self rid:(nextRidToSend - 1)];
+        boshWindowManager = [[BoshWindowManager alloc] initWithRid:(nextRidToSend - 1)];
         [boshWindowManager setWindowSize:1];
     }
     return self;
@@ -265,7 +280,7 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
     NSLog(@"Bosh: Will Terminate Session");
     state = DISCONNECTING;
     [multicastDelegate transportWillDisconnect:self];
-    if ( [boshWindowManager canSendMoreRequests] ) [self trySendingStanzas];
+    [self trySendingStanzas];
 }
 
 - (BOOL)sendStanza:(NSXMLElement *)stanza
@@ -339,8 +354,8 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
 - (void)makeBodyAndSendHTTPRequestWithPayload:(NSArray *)bodyPayload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces
 {
 	NSXMLElement *requestPayload = [self newBodyElementWithPayload:bodyPayload attributes:attributes namespaces:namespaces];
-    //NSLog(@"request paylaod = %@", requestPayload);
-	[boshWindowManager sentRequest:requestPayload];
+    int rid = [self getRidInRequest:requestPayload];
+	[boshWindowManager sentRequestForRid:rid];
     [self sendHTTPRequestWithBody:requestPayload];
 	[requestPayload release];
 }
@@ -354,21 +369,22 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
 
 - (void)trySendingStanzas
 {
-    if( [boshWindowManager canSendMoreRequests]) 
+    if( state != DISCONNECTED && ![boshWindowManager isWindowFull] ) 
     {
-        if([pendingXMPPStanzas count] > 0)
-        {
-            [self makeBodyAndSendHTTPRequestWithPayload:pendingXMPPStanzas attributes:nil namespaces:nil];
-            [pendingXMPPStanzas removeAllObjects];
+        if (state == CONNECTED) {
+            if ( [pendingXMPPStanzas count] > 0 )
+            {
+                [self makeBodyAndSendHTTPRequestWithPayload:pendingXMPPStanzas attributes:nil namespaces:nil];
+                [pendingXMPPStanzas removeAllObjects];
+            } else if ( [boshWindowManager isWindowEmpty] ) {
+                [self makeBodyAndSendHTTPRequestWithPayload:nil attributes:nil namespaces:nil];                
+            }
         }
-        else if(state == DISCONNECTING) [self sendTerminateRequest];
+        else if(state == DISCONNECTING) 
+        { 
+            [self sendTerminateRequest]; 
+        }
     }
-}
-
-- (void)sendRequestsToHold
-{
-    while( [boshWindowManager canLetServerHoldRequests:[self.hold unsignedIntValue]] && state == CONNECTED) 
-        [self makeBodyAndSendHTTPRequestWithPayload:nil attributes:nil namespaces:nil];
 }
 
 /*
@@ -384,7 +400,6 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
         
         if([node level] == level + 1)
         {
-            //NSLog(@"BOSH: Passing to delegates the stanza = %@", node);
             [multicastDelegate transport:self didReceiveStanza:[(NSXMLElement *)node copy]];
         }
     }
@@ -433,10 +448,12 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
                 disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" code:UNDEFINED_CONDITION userInfo:nil];
             else NSAssert( false, @"Terminate Condition Not Valid");
         }
-        state = TERMINATED;
+        state = DISCONNECTED;
     }
     else if( !self.sid )
+    {
         [self createSessionResponseHandler:parsedResponse];
+    }
 }
 
 - (void)createSessionResponseHandler:(NSXMLElement *)parsedResponse
@@ -451,7 +468,9 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
         SEL setter = [self setterForProperty:attrName];
         
         if([self respondsToSelector:setter]) 
+        {
             [self performSelector:setter withObject:attrValue];
+        }
     }
     
     /* Not doing anything with namespaces right now - because chirkut doesn't send it */
@@ -462,7 +481,7 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
     [multicastDelegate transportDidStartNegotiation:self];
 }
 
-- (void)disconnectSessionResponseHandler:(ASIHTTPRequest *)request
+- (void)handleDisconnection
 {
     NSLog(@"disconnectSessionResponseHandler");
     if(self.disconnectError != nil)
@@ -471,28 +490,33 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
         [disconnectError_ release];
         self.disconnectError = nil;
     }
-    for ( ASIHTTPRequest *pendingRequest in pendingHttpRequests ) 
-        if(pendingRequest != request) [pendingRequest clearDelegatesAndCancel];
-    
-    [pendingHttpRequests removeAllObjects];
     [pendingXMPPStanzas removeAllObjects];
-    
     state = DISCONNECTED;
-    
-    nextRidToSend = [self generateRid];
-    self.hold = [NSNumber numberWithInt:1];
-    self.wait = [NSNumber numberWithDouble:60.0];
-    [inactivity release];
-    inactivity = [NSNumber numberWithInt:0];
-    self.sid = nil;
-    self.authid = nil;
-    [boshWindowManager release];
-    boshWindowManager = [[BoshWindowManager alloc] initWithDelegate:self rid:(nextRidToSend - 1)];
-    [boshWindowManager setWindowSize:1];
-    
     [multicastDelegate transportDidDisconnect:self];
 }
 
+- (NSXMLElement *)newXMLElementFromData:(NSData *)data 
+{
+    NSString *string = [[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] autorelease];
+    return [[NSXMLElement alloc] initWithXMLString:string error:nil];
+}
+
+- (void)processResponses
+{
+    while ( maxRidProcessed < [boshWindowManager maxRidReceived] ) 
+    {
+        ++maxRidProcessed;
+        RequestResponsePair *pair = [requestResponsePairs objectForLongLongKey:maxRidProcessed];
+        NSAssert( [pair response], @"Processing nil response" );
+        [self handleAttributesInResponse:[pair response]];
+        [self broadcastStanzas:[pair response]];
+        [requestResponsePairs removeObjectForLongLongKey:maxRidProcessed];
+        if ( state == DISCONNECTED )
+        {
+            [self handleDisconnection];
+        }
+    }
+}
 
 /* 
  Should call processRequestQueue after some timeOut 
@@ -501,28 +525,22 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
 - (void)requestFinished:(ASIHTTPRequest *)request
 {
     NSData *responseData = [request responseData];
-    NSString *postBodyString = [[NSString alloc] initWithData:[request postBody] encoding:NSUTF8StringEncoding];
-    NSXMLElement *postBody = [[NSXMLElement alloc] initWithXMLString:postBodyString error:nil];
+    NSXMLElement *postBody = [self newXMLElementFromData:[request postBody]];
     long long rid = [self getRidInRequest:postBody];
     
     NSLog(@"BOSH: RECD[%qi] = %@", rid, [request responseString]);
     
-    [pendingHttpRequests removeObject:request];
     retryCounter = 0;
-    
     NSXMLElement *parsedResponse = [self parseXMLData:responseData];
+    RequestResponsePair *requestResponsePair = [requestResponsePairs objectForLongLongKey:rid];
+    [requestResponsePair setResponse:parsedResponse];
     
-    [self handleAttributesInResponse:parsedResponse]; 
-    [boshWindowManager recievedResponse:parsedResponse forRid:[self getRidInRequest:postBody]];
-    
-    if(state == TERMINATED) [self disconnectSessionResponseHandler:request];
-    else {
-        [self trySendingStanzas];
-        [self sendRequestsToHold];
-    }
-        
+    [boshWindowManager recievedResponseForRid:rid];
+    [self processResponses];
+
+    [self trySendingStanzas];
+
     [postBody release];
-    [postBodyString release];
 }
 
 
@@ -531,43 +549,43 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
 {
     if( ![self isConnected] ) return ;
     NSError *error = [request error];
-
-    [pendingHttpRequests removeObject:request];
     
     NSLog(@"BOSH: Request Failed[%@", [self logRequestResponse:[request postBody]]);
     NSLog(@"Failure HTTP statusCode = %d, error domain = %@, error code = %d", [request responseStatusCode],[[request error] domain], [[request error] code]);
     
-    BOOL shouldReconnect = ([error code] == ASIRequestTimedOutErrorType || [error code] == ASIConnectionFailureErrorType) && ( retryCounter < RETRY_COUNT_LIMIT );
+    BOOL shouldReconnect = ([error code] == ASIRequestTimedOutErrorType || [error code] == ASIConnectionFailureErrorType) && 
+    ( retryCounter < RETRY_COUNT_LIMIT ) && 
+    (state == CONNECTED);
     ++retryCounter;
     if( shouldReconnect ) 
     {
         NSLog(@"Resending the request");
         [self performSelector:@selector(sendHTTPRequestWithBody:) withObject:[self parseXMLData:[request postBody]] afterDelay:RETRY_DELAY];
-        //[self sendHTTPRequestWithBody:[ self parseXMLData:[request postBody]] retriedTimes:tried];
-        //NSTimer timerWithTimeInterval:self.retryAfterTime target:self selector:@selector(resendRequest) userInfo:request repeats:NO;
     }
     else 
     {
         NSLog(@"disconnecting due to request failure");
         [multicastDelegate transportWillDisconnect:self withError:error];
-        [self disconnectSessionResponseHandler:request];
+        state = DISCONNECTED;
+        [self handleDisconnection];
     }
 }
 
 - (void)sendHTTPRequestWithBody:(NSXMLElement *)body
 {
     NSURL *url = [NSURL URLWithString:self.url];
-    
     ASIHTTPRequest *request = [ASIHTTPRequest requestWithURL:url];
     [request setRequestMethod:@"POST"];
     [request setDelegate:self];
     [request setTimeOutSeconds:([self.wait doubleValue] + 4)];
     
-    if(body) {
+    if(body) 
+    {
         [request appendPostData:[[body compactXMLString] dataUsingEncoding:NSUTF8StringEncoding]];
     }
     
-    [pendingHttpRequests addObject:request];
+    RequestResponsePair *requestResponsePair = [[RequestResponsePair alloc] initWithRequest:body response:nil];
+    [requestResponsePairs setObject:requestResponsePair forLongLongKey:[self getRidInRequest:body]];
     
     [request startAsynchronous];
     NSLog(@"BOSH: SEND[%@", [self logRequestResponse:[request postBody]]);
@@ -577,7 +595,9 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
 #pragma mark -
 #pragma mark utilities
 
-- (NSXMLElement *)newBodyElementWithPayload:(NSArray *)payload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces
+- (NSXMLElement *)newBodyElementWithPayload:(NSArray *)payload 
+                                 attributes:(NSMutableDictionary *)attributes 
+                                 namespaces:(NSMutableDictionary *)namespaces
 {
     attributes = attributes?attributes:[NSMutableDictionary dictionaryWithCapacity:3];
     namespaces = namespaces?namespaces:[NSMutableDictionary dictionaryWithCapacity:1];
@@ -585,8 +605,8 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
     /* Adding ack and sid attribute on every outgoing request after sid is created */
 	if( self.sid ) {
         [attributes setValue:self.sid forKey:@"sid"];
-        NSNumber *ack = [boshWindowManager maxRidReceived];
-        if( [ack longLongValue] != nextRidToSend - 1) [attributes setValue:[ack stringValue] forKey:@"ack"];
+        long long ack = maxRidProcessed;
+        if( ack != nextRidToSend - 1) [attributes setValue:[NSString stringWithFormat:@"%qi", ack] forKey:@"ack"];
     }
     else [attributes setValue:@"1" forKey:@"ack"];
     

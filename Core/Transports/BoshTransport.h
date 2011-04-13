@@ -46,12 +46,7 @@ typedef enum {
     CONNECTING = 1,
     DISCONNECTING = 2,
     DISCONNECTED = 3,
-    TERMINATED = 4
 } BoshTransportState;
-
-@protocol BoshWindowProtocol
-- (void)broadcastStanzas:(NSXMLNode *)node;
-@end
 
 @interface RequestResponsePair : NSObject
 @property(retain) NSXMLElement *request;
@@ -60,27 +55,32 @@ typedef enum {
 - (void)dealloc;
 @end
 
+#pragma mark -
+
+/**
+ * Handles the in-order processing of responses.
+ **/
 @interface BoshWindowManager : NSObject {
-	NSMutableDictionary *window;
-	long long maxRidReceived;
+	long long maxRidReceived; // all rid value less than equal to maxRidReceived are processed.
 	long long maxRidSent;
-	id delegate;
+    NSMutableSet *receivedRids;
 }
 
-@property long long windowSize;
-@property(readonly) long long outstandingRequests;
+@property unsigned int windowSize;
+@property (readonly) long long maxRidReceived;
 
-- (void)sentRequest:(NSXMLElement *)request;
-- (void)recievedResponse:(NSXMLElement *)response forRid:(long long)rid;
-- (BOOL)canSendMoreRequests;
-- (NSNumber *)maxRidReceived;
-- (BOOL)canLetServerHoldRequests:(long long)hold;
-- (NSXMLElement *)getRequestForRid:(long long)rid;
-- (id)initWithDelegate:(id)del rid:(long long)rid;
+- (id)initWithRid:(long long)rid;
+- (void)sentRequestForRid:(long long)rid;
+- (void)recievedResponseForRid:(long long)rid;
+- (BOOL)isWindowFull;
+- (BOOL)isWindowEmpty;
 - (void)dealloc;
 @end
 
-@interface BoshTransport : NSObject <XMPPTransportProtocol, BoshWindowProtocol > {
+
+#pragma mark -
+
+@interface BoshTransport : NSObject <XMPPTransportProtocol> {
 	NSString *boshVersion;
 
 	NSString *content;
@@ -89,12 +89,13 @@ typedef enum {
     NSString *XMPP_NS;
 
     long long nextRidToSend;
-	
+	long long maxRidProcessed;
+    
 	NSMutableArray *pendingXMPPStanzas;
 	BoshWindowManager *boshWindowManager;
     BoshTransportState state;
     
-    NSMutableSet *pendingHttpRequests;
+    NSMutableDictionary *requestResponsePairs;
     
 	MulticastDelegate <XMPPTransportDelegate> *multicastDelegate;
     NSError *disconnectError_;
@@ -143,7 +144,7 @@ typedef enum {
 - (void)handleAttributesInResponse:(NSXMLElement *)parsedResponse;
 - (NSString *)logRequestResponse:(NSData *)data;
 - (void)createSessionResponseHandler:(NSXMLElement *)parsedResponse;
-- (void)disconnectSessionResponseHandler:(ASIHTTPRequest *)request;
+- (void)handleDisconnection;
 - (long long)generateRid;
 - (NSArray *)convertToStrings:(NSArray *)array;
 - (SEL)setterForProperty:(NSString *)property;
@@ -157,6 +158,5 @@ typedef enum {
 - (NSArray *)createXMLNodeArrayFromDictionary:(NSDictionary *)dict ofType:(XMLNodeType)type;
 - (NSXMLElement *)parseXMLData:(NSData *)xml;
 - (NSXMLElement *)parseXMLString:(NSString *)xml;
-- (void)sendRequestsToHold;
 - (BOOL) createSession:(NSError **)error;
 @end
