@@ -125,7 +125,8 @@
 }
 @end
 
-const int RETRY_COUNT_LIMIT = 3;
+static const int RETRY_COUNT_LIMIT = 25;
+static const NSTimeInterval RETRY_DELAY = 1.0;
 
 @interface BoshTransport()
 @property(readwrite, assign) NSError *disconnectError;
@@ -215,7 +216,7 @@ const int RETRY_COUNT_LIMIT = 3;
         /* Keeping a random capacity right now */
         pendingXMPPStanzas = [[NSMutableArray alloc] initWithCapacity:25];
         pendingHttpRequests = [[NSMutableSet alloc] initWithCapacity:3];
-        retryCountForPendingRequests = [[NSMutableDictionary alloc] initWithCapacity:3];
+        retryCounter = 0;
         
         boshWindowManager = [[BoshWindowManager alloc] initWithDelegate:self rid:(nextRidToSend - 1)];
         [boshWindowManager setWindowSize:1];
@@ -475,7 +476,6 @@ const int RETRY_COUNT_LIMIT = 3;
     
     [pendingHttpRequests removeAllObjects];
     [pendingXMPPStanzas removeAllObjects];
-    [retryCountForPendingRequests removeAllObjects];
     
     state = DISCONNECTED;
     
@@ -508,7 +508,7 @@ const int RETRY_COUNT_LIMIT = 3;
     NSLog(@"BOSH: RECD[%qi] = %@", rid, [request responseString]);
     
     [pendingHttpRequests removeObject:request];
-    [retryCountForPendingRequests removeObjectForKey:request];
+    retryCounter = 0;
     
     NSXMLElement *parsedResponse = [self parseXMLData:responseData];
     
@@ -525,30 +525,25 @@ const int RETRY_COUNT_LIMIT = 3;
     [postBodyString release];
 }
 
-- (void)resendRequest:(NSInteger)count {
-    
-}
 
 /* Not sending terminate request to the server - just disconnecting */
 - (void)requestFailed:(ASIHTTPRequest *)request
 {
     if( ![self isConnected] ) return ;
     NSError *error = [request error];
-    int tried = [[retryCountForPendingRequests objectForKey:request] intValue];
 
     [pendingHttpRequests removeObject:request];
-    [retryCountForPendingRequests removeObjectForKey:request];
     
     NSLog(@"BOSH: Request Failed[%@", [self logRequestResponse:[request postBody]]);
     NSLog(@"Failure HTTP statusCode = %d, error domain = %@, error code = %d", [request responseStatusCode],[[request error] domain], [[request error] code]);
     
-    BOOL shouldReconnect = ([error code] == ASIRequestTimedOutErrorType || [error code] == ASIConnectionFailureErrorType) && ( tried < RETRY_COUNT_LIMIT );
-    
+    BOOL shouldReconnect = ([error code] == ASIRequestTimedOutErrorType || [error code] == ASIConnectionFailureErrorType) && ( retryCounter < RETRY_COUNT_LIMIT );
+    ++retryCounter;
     if( shouldReconnect ) 
     {
         NSLog(@"Resending the request");
-        [self sendHTTPRequestWithBody:[ self parseXMLData:[request postBody]] retriedTimes:tried];
-        //[self performSelector:@selector(resendRequest:) withObject:[request postBody] afterDelay:(1<<[[retryCountForPendingRequests objectForKey:request] intValue])];
+        [self performSelector:@selector(sendHTTPRequestWithBody:) withObject:[self parseXMLData:[request postBody]] afterDelay:RETRY_DELAY];
+        //[self sendHTTPRequestWithBody:[ self parseXMLData:[request postBody]] retriedTimes:tried];
         //NSTimer timerWithTimeInterval:self.retryAfterTime target:self selector:@selector(resendRequest) userInfo:request repeats:NO;
     }
     else 
@@ -559,22 +554,20 @@ const int RETRY_COUNT_LIMIT = 3;
     }
 }
 
-- (void)sendHTTPRequestWithBody:(DDXMLElement *)body
-{
-    [self sendHTTPRequestWithBody:body retriedTimes:0];
-}
-
-- (void)sendHTTPRequestWithBody:(NSXMLElement *)body retriedTimes:(NSInteger)times
+- (void)sendHTTPRequestWithBody:(NSXMLElement *)body
 {
     NSURL *url = [NSURL URLWithString:self.url];
+    
     ASIHTTPRequest *request = [ASIHTTPRequest requestWithURL:url];
     [request setRequestMethod:@"POST"];
     [request setDelegate:self];
-    [request setTimeOutSeconds:2];
+    [request setTimeOutSeconds:([self.wait doubleValue] + 4)];
     
-    if(body) [request appendPostData:[[body compactXMLString] dataUsingEncoding:NSUTF8StringEncoding]];
+    if(body) {
+        [request appendPostData:[[body compactXMLString] dataUsingEncoding:NSUTF8StringEncoding]];
+    }
+    
     [pendingHttpRequests addObject:request];
-    [retryCountForPendingRequests setObject:[NSNumber numberWithInt:times] forKey:request];
     
     [request startAsynchronous];
     NSLog(@"BOSH: SEND[%@", [self logRequestResponse:[request postBody]]);
