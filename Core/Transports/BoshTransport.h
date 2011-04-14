@@ -108,12 +108,12 @@ typedef enum {
 @property(readonly) unsigned int requests;
 @property(copy) NSString *authid;
 @property(copy) NSString *sid;
-@property(copy) NSString *url;
+@property(copy) NSURL *url;
 @property(readonly) NSError *disconnectError;
 
 /* init Methods */
-- (id)initWithUrl:(NSString *)url forDomain:(NSString *)host;
-- (id)initWithUrl:(NSString *)url forDomain:(NSString *)host withDelegate:(id<XMPPTransportDelegate>)delegate;
+- (id)initWithUrl:(NSURL *)url forDomain:(NSString *)host;
+- (id)initWithUrl:(NSURL *)url forDomain:(NSString *)host withDelegate:(id<XMPPTransportDelegate>)delegate;
 
 - (void)dealloc;
 
@@ -133,24 +133,4 @@ typedef enum {
 - (float)serverXmppStreamVersionNumber;
 - (BOOL)sendStanza:(NSXMLElement *)stanza;
 - (BOOL)sendStanzaWithString:(NSString *)string;
-
-/* Methods used internally */
-- (BOOL)canConnect;
-- (void)handleAttributesInResponse:(NSXMLElement *)parsedResponse;
-- (NSString *)logRequestResponse:(NSData *)data;
-- (void)createSessionResponseHandler:(NSXMLElement *)parsedResponse;
-- (void)handleDisconnection;
-- (long long)generateRid;
-- (SEL)setterForProperty:(NSString *)property;
-- (NSNumber *)numberFromString:(NSString *)stringNumber;
-- (void)sendHTTPRequestWithBody:(NSXMLElement *)body;
-- (void)broadcastStanzas:(NSXMLNode *)node;
-- (void)trySendingStanzas;
-- (void)makeBodyAndSendHTTPRequestWithPayload:(NSArray *)bodyPayload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces;
-- (long long)getRidInRequest:(NSXMLElement *)body;
-- (NSXMLElement *)newBodyElementWithPayload:(NSArray *)payload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces;
-- (NSArray *)createXMLNodeArrayFromDictionary:(NSDictionary *)dict ofType:(XMLNodeType)type;
-- (NSXMLElement *)parseXMLData:(NSData *)xml;
-- (NSXMLElement *)parseXMLString:(NSString *)xml;
-- (BOOL) createSession:(NSError **)error;
 @end

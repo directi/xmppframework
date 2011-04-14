@@ -151,6 +151,29 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 - (void)setInactivity:(NSString *)givenInactivity;
 - (void)setSecure:(NSString *)isSecure;
 - (void)setRequests:(NSString *)maxRequests;
+- (BOOL)canConnect;
+- (void)handleAttributesInResponse:(NSXMLElement *)parsedResponse;
+- (NSString *)logRequestResponse:(NSData *)data;
+- (void)createSessionResponseHandler:(NSXMLElement *)parsedResponse;
+- (void)handleDisconnection;
+- (long long)generateRid;
+- (SEL)setterForProperty:(NSString *)property;
+- (NSNumber *)numberFromString:(NSString *)stringNumber;
+- (void)sendHTTPRequestWithBody:(NSXMLElement *)body;
+- (void)broadcastStanzas:(NSXMLNode *)node;
+- (void)trySendingStanzas;
+- (void)makeBodyAndSendHTTPRequestWithPayload:(NSArray *)bodyPayload 
+                                   attributes:(NSMutableDictionary *)attributes 
+                                   namespaces:(NSMutableDictionary *)namespaces;
+- (long long)getRidInRequest:(NSXMLElement *)body;
+- (NSXMLElement *)newBodyElementWithPayload:(NSArray *)payload 
+                                 attributes:(NSMutableDictionary *)attributes 
+                                 namespaces:(NSMutableDictionary *)namespaces;
+- (NSArray *)newXMLNodeArrayFromDictionary:(NSDictionary *)dict 
+                                    ofType:(XMLNodeType)type;
+- (NSXMLElement *)parseXMLData:(NSData *)xml;
+- (NSXMLElement *)parseXMLString:(NSString *)xml;
+- (BOOL) createSession:(NSError **)error;
 @end
 
 #pragma -
@@ -195,12 +218,14 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 #pragma mark -
 #pragma mark init
 
-- (id)initWithUrl:(NSString *)url forDomain:(NSString *)domain
+- (id)initWithUrl:(NSURL *)url forDomain:(NSString *)domain
 {
     return [self initWithUrl:url forDomain:(NSString *)domain withDelegate:nil];
 }
 
-- (id)initWithUrl:(NSString *)url forDomain:(NSString *)domain withDelegate:(id<XMPPTransportDelegate>)delegate
+- (id)initWithUrl:(NSURL *)url 
+        forDomain:(NSString *)domain
+     withDelegate:(id<XMPPTransportDelegate>)delegate
 {
     self = [super init];
     if(self)
@@ -219,7 +244,8 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         sid_ = nil;
         inactivity = 0.0;
         requests = 2;
-        url_ = [url copy];
+        url_ = [url retain];
+
         domain_ = [domain copy];
         myJID_ = nil;
         state = DISCONNECTED;
@@ -356,20 +382,24 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     return YES;
 }
 
-- (void)makeBodyAndSendHTTPRequestWithPayload:(NSArray *)bodyPayload attributes:(NSMutableDictionary *)attributes namespaces:(NSMutableDictionary *)namespaces
+- (void)makeBodyAndSendHTTPRequestWithPayload:(NSArray *)bodyPayload 
+                                   attributes:(NSMutableDictionary *)attributes 
+                                   namespaces:(NSMutableDictionary *)namespaces
 {
-	NSXMLElement *requestPayload = [self newBodyElementWithPayload:bodyPayload attributes:attributes namespaces:namespaces];
-    int rid = [self getRidInRequest:requestPayload];
-	[boshWindowManager sentRequestForRid:rid];
+	NSXMLElement *requestPayload = [self newBodyElementWithPayload:bodyPayload 
+                                                        attributes:attributes 
+                                                        namespaces:namespaces];
     [self sendHTTPRequestWithBody:requestPayload];
-	[requestPayload release];
+    [boshWindowManager sentRequestForRid:nextRidToSend];
+    ++nextRidToSend;
+    
+    [requestPayload release];
 }
 
 - (void)sendTerminateRequest
 {
     NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: @"terminate", @"type", nil];
-    NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: BODY_NS, @"", nil];
-    [self makeBodyAndSendHTTPRequestWithPayload:nil attributes:attr namespaces:ns];
+    [self makeBodyAndSendHTTPRequestWithPayload:nil attributes:attr namespaces:nil];
 }
 
 - (void)trySendingStanzas
@@ -379,10 +409,12 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         if (state == CONNECTED) {
             if ( [pendingXMPPStanzas count] > 0 )
             {
-                [self makeBodyAndSendHTTPRequestWithPayload:pendingXMPPStanzas attributes:nil namespaces:nil];
+                [self makeBodyAndSendHTTPRequestWithPayload:pendingXMPPStanzas 
+                                                 attributes:nil namespaces:nil];
                 [pendingXMPPStanzas removeAllObjects];
             } else if ( [boshWindowManager isWindowEmpty] ) {
-                [self makeBodyAndSendHTTPRequestWithPayload:nil attributes:nil namespaces:nil];                
+                [self makeBodyAndSendHTTPRequestWithPayload:nil 
+                                                 attributes:nil namespaces:nil];                
             }
         }
         else if(state == DISCONNECTING) 
@@ -405,7 +437,8 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         
         if([node level] == level + 1)
         {
-            [multicastDelegate transport:self didReceiveStanza:[(NSXMLElement *)node copy]];
+            [multicastDelegate transport:self 
+                        didReceiveStanza:[(NSXMLElement *)node copy]];
         }
     }
 }
@@ -423,23 +456,32 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         {
             NSString *condition = [conditionNode stringValue];
             if( [condition isEqualToString:@"host-unknown"] )
-                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" code:HOST_UNKNOWN userInfo:nil];
+                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" 
+                                                              code:HOST_UNKNOWN userInfo:nil];
             else if ( [condition isEqualToString:@"host-gone"] ) 
-                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" code:HOST_GONE userInfo:nil];
+                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" 
+                                                              code:HOST_GONE userInfo:nil];
             else if( [condition isEqualToString:@"item-not-found"] )
-                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" code:ITEM_NOT_FOUND userInfo:nil];
+                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" 
+                                                              code:ITEM_NOT_FOUND userInfo:nil];
             else if ( [condition isEqualToString:@"policy-violation"] ) 
-                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" code:POLICY_VIOLATION userInfo:nil];
+                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" 
+                                                              code:POLICY_VIOLATION userInfo:nil];
             else if( [condition isEqualToString:@"remote-connection-failed"] )
-                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" code:REMOTE_CONNECTION_FAILED userInfo:nil];
+                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" 
+                                                              code:REMOTE_CONNECTION_FAILED userInfo:nil];
             else if ( [condition isEqualToString:@"bad-request"] ) 
-                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" code:BAD_REQUEST userInfo:nil];
+                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" 
+                                                              code:BAD_REQUEST userInfo:nil];
             else if( [condition isEqualToString:@"internal-server-error"] )
-                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" code:INTERNAL_SERVER_ERROR userInfo:nil];
+                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" 
+                                                              code:INTERNAL_SERVER_ERROR userInfo:nil];
             else if ( [condition isEqualToString:@"remote-stream-error"] ) 
-                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" code:REMOTE_STREAM_ERROR userInfo:nil];
+                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" 
+                                                              code:REMOTE_STREAM_ERROR userInfo:nil];
             else if ( [condition isEqualToString:@"undefined-condition"] ) 
-                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" code:UNDEFINED_CONDITION userInfo:nil];
+                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" 
+                                                              code:UNDEFINED_CONDITION userInfo:nil];
             else NSAssert( false, @"Terminate Condition Not Valid");
         }
         state = DISCONNECTED;
@@ -559,7 +601,9 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     if( shouldReconnect ) 
     {
         NSLog(@"Resending the request");
-        [self performSelector:@selector(sendHTTPRequestWithBody:) withObject:[self parseXMLData:[request postBody]] afterDelay:RETRY_DELAY];
+        [self performSelector:@selector(sendHTTPRequestWithBody:) 
+                   withObject:[self parseXMLData:[request postBody]] 
+                   afterDelay:RETRY_DELAY];
     }
     else 
     {
@@ -572,8 +616,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 - (void)sendHTTPRequestWithBody:(NSXMLElement *)body
 {
-    NSURL *url = [NSURL URLWithString:self.url];
-    ASIHTTPRequest *request = [ASIHTTPRequest requestWithURL:url];
+    ASIHTTPRequest *request = [ASIHTTPRequest requestWithURL:self.url];
     [request setRequestMethod:@"POST"];
     [request setDelegate:self];
     [request setTimeOutSeconds:(self.wait + 4)];
@@ -583,8 +626,8 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         [request appendPostData:[[body compactXMLString] dataUsingEncoding:NSUTF8StringEncoding]];
     }
     
-    RequestResponsePair *requestResponsePair = [[RequestResponsePair alloc] initWithRequest:body response:nil];
-    [requestResponsePairs setObject:requestResponsePair forLongLongKey:[self getRidInRequest:body]];
+    RequestResponsePair *pair = [[RequestResponsePair alloc] initWithRequest:body response:nil];
+    [requestResponsePairs setObject:pair forLongLongKey:[self getRidInRequest:body]];
     
     [request startAsynchronous];
     NSLog(@"BOSH: SEND[%@", [self logRequestResponse:[request postBody]]);
@@ -602,29 +645,42 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     namespaces = namespaces?namespaces:[NSMutableDictionary dictionaryWithCapacity:1];
     
     /* Adding ack and sid attribute on every outgoing request after sid is created */
-	if( self.sid ) {
+	if( self.sid ) 
+    {
         [attributes setValue:self.sid forKey:@"sid"];
         long long ack = maxRidProcessed;
-        if( ack != nextRidToSend - 1) [attributes setValue:[NSString stringWithFormat:@"%qi", ack] forKey:@"ack"];
+        if( ack != nextRidToSend - 1 ) 
+        {
+            [attributes setValue:[NSString stringWithFormat:@"%qi", ack] forKey:@"ack"];
+        }
     }
-    else [attributes setValue:@"1" forKey:@"ack"];
+    else
+    {
+        [attributes setValue:@"1" forKey:@"ack"];
+    }
     
     [attributes setValue:[NSString stringWithFormat:@"%d", nextRidToSend] forKey:@"rid"];
-	
-    /* Adding the BODY_NS namespace on every outgoing request */
     [namespaces setValue:BODY_NS forKey:@""];
 	
     NSXMLElement *body = [[NSXMLElement alloc] initWithName:@"body"];
 	
-    [body setNamespaces:[self createXMLNodeArrayFromDictionary:namespaces ofType:NAMESPACE_TYPE]];
-    [body setAttributes:[self createXMLNodeArrayFromDictionary:attributes ofType:ATTR_TYPE]];
-	
+    NSArray *namespaceArray = [self newXMLNodeArrayFromDictionary:namespaces 
+                                                           ofType:NAMESPACE_TYPE];
+    NSArray *attributesArray = [self newXMLNodeArrayFromDictionary:attributes 
+                                                            ofType:ATTR_TYPE];
+    [body setNamespaces:namespaceArray];
+    [body setAttributes:attributesArray];
+	[namespaceArray release];
+    [attributesArray release];
+    
     if(payload != nil)
+    {
         for(NSXMLElement *child in payload)
+        {
             [body addChild:[[child copy] autorelease]];
-
-	++nextRidToSend;
-	
+        }
+    }
+    
     return body;
 }
 
@@ -636,17 +692,22 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 - (NSXMLElement *)parseXMLString:(NSString *)xml
 {
-    NSXMLDocument *doc = [[[NSXMLDocument alloc] initWithXMLString:xml options:0 error:nil] autorelease];
+    NSXMLDocument *doc = [[[NSXMLDocument alloc] initWithXMLString:xml
+                                                           options:0 
+                                                             error:nil] autorelease];
     return [doc rootElement];
 }
 
 - (NSXMLElement *)parseXMLData:(NSData *)xml
 {
-    NSXMLDocument *doc = [[[NSXMLDocument alloc] initWithData:xml options:0 error:nil] autorelease];
+    NSXMLDocument *doc = [[[NSXMLDocument alloc] initWithData:xml 
+                                                      options:0 
+                                                        error:nil] autorelease];
     return [doc rootElement];
 }
 
-- (NSArray *)createXMLNodeArrayFromDictionary:(NSDictionary *)dict ofType:(XMLNodeType)type
+- (NSArray *)newXMLNodeArrayFromDictionary:(NSDictionary *)dict 
+                                    ofType:(XMLNodeType)type
 {
     NSMutableArray *array = [[NSMutableArray alloc] init];
     for (NSString *key in dict) {
@@ -662,7 +723,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 		
         [array addObject:node];
     }
-    return [array autorelease];
+    return array;
 }
 
 - (long long)generateRid
