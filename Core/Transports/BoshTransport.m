@@ -142,6 +142,10 @@
 static const int RETRY_COUNT_LIMIT = 25;
 static const NSTimeInterval RETRY_DELAY = 1.0;
 
+static const NSString *CONTENT_TYPE = @"text/xml; charset=utf-8";
+static const NSString *BODY_NS = @"http://jabber.org/protocol/httpbind";
+static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
+
 @interface BoshTransport()
 @property(readwrite, assign) NSError *disconnectError;
 - (void)setInactivity:(NSString *)givenInactivity;
@@ -172,16 +176,14 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
 - (void)setInactivity:(NSString *)inactivityString
 {
     NSNumber *givenInactivity = [self numberFromString:inactivityString];
-    [inactivity autorelease];
-    inactivity = [givenInactivity retain];
+    inactivity = [givenInactivity unsignedIntValue];
 }
 
 - (void)setRequests:(NSString *)requestsString
 {
     NSNumber *maxRequests = [self numberFromString:requestsString];
-    [boshWindowManager setWindowSize:[maxRequests longLongValue]];
-    [requests autorelease];
-    requests = [maxRequests retain];
+    [boshWindowManager setWindowSize:[maxRequests unsignedIntValue]];
+    requests = [maxRequests unsignedIntValue];
 }
 
 - (void)setSecure:(NSString *)isSecure
@@ -205,23 +207,18 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
     {		
         boshVersion = @"1.6";
         lang_ = @"en";
-        content = [NSString stringWithFormat:@"text/xml; charset=utf-8"];
-        wait_ = [[NSNumber alloc] initWithDouble:60.0];
-        hold_ = [[NSNumber alloc] initWithInt:1];
+        wait_ = 60.0;
+        hold_ = 1;
 
         nextRidToSend = [self generateRid];
         maxRidProcessed = nextRidToSend - 1;
         
         multicastDelegate = [[MulticastDelegate alloc] init];
         if( delegate != nil ) [multicastDelegate addDelegate:delegate];
-
-        STREAM_NS = @"http://etherx.jabber.org/streams";
-        BODY_NS = @"http://jabber.org/protocol/httpbind";
-        XMPP_NS = @"urn:xmpp:xbosh";
 		
         sid_ = nil;
-        inactivity = [[NSNumber alloc] initWithInt:0];
-        requests = [[NSNumber alloc] initWithInt:2];
+        inactivity = 0.0;
+        requests = 2;
         url_ = [url copy];
         domain_ = [domain copy];
         myJID_ = nil;
@@ -341,9 +338,17 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
 
 - (BOOL)createSession:(NSError **)error
 {
-    NSArray *keys = [NSArray arrayWithObjects:@"content", @"hold", @"to", @"ver", @"wait", @"from", @"secure", @"inactivity", nil];
-    NSArray *objects = [NSArray arrayWithObjects:content, self.hold, self.domain, boshVersion, self.wait, [self.myJID bare], @"false", @"10", nil];
-    NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjects:[self convertToStrings:objects] forKeys:keys];
+    NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithCapacity:8];
+   
+    [attr setObject:CONTENT_TYPE forKey:@"content"];
+    [attr setObject:[NSString stringWithFormat:@"%u", self.hold] forKey:@"hold"];
+    [attr setObject:self.domain forKey:@"to"];
+    [attr setObject:boshVersion forKey:@"ver"];
+    [attr setObject:[NSString stringWithFormat:@"%u", self.wait] forKey:@"wait"];
+    [attr setObject:[self.myJID bare] forKey:@"from"];
+    [attr setObject:@"false" forKey:@"secure"];
+    [attr setObject:[NSString stringWithFormat:@"%u", self.inactivity] forKey:@"inactivity"];
+    
     NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: XMPP_NS, @"xmpp", nil];
     
     [self makeBodyAndSendHTTPRequestWithPayload:nil attributes:attr namespaces:ns];
@@ -408,17 +413,6 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
 #pragma mark -
 #pragma mark HTTP Request Response
 
-/*
- host-unknown
- host-gone
- item-not-found
- policy-violation
- remote-connection-failed
- bad-request
- internal-server-error
- remote-stream-error
- undefined-condition
- */
 - (void)handleAttributesInResponse:(NSXMLElement *)parsedResponse
 {
     NSXMLNode *typeAttribute = [parsedResponse attributeForName:@"type"];
@@ -532,12 +526,17 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
     
     retryCounter = 0;
     NSXMLElement *parsedResponse = [self parseXMLData:responseData];
+    if ( !parsedResponse )
+    {
+        [self requestFailed:request];
+        return;
+    }
     RequestResponsePair *requestResponsePair = [requestResponsePairs objectForLongLongKey:rid];
     [requestResponsePair setResponse:parsedResponse];
     
     [boshWindowManager recievedResponseForRid:rid];
     [self processResponses];
-
+    
     [self trySendingStanzas];
 
     [postBody release];
@@ -547,7 +546,7 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
 /* Not sending terminate request to the server - just disconnecting */
 - (void)requestFailed:(ASIHTTPRequest *)request
 {
-    if( ![self isConnected] ) return ;
+    //if( ![self isConnected] ) return ;
     NSError *error = [request error];
     
     NSLog(@"BOSH: Request Failed[%@", [self logRequestResponse:[request postBody]]);
@@ -577,7 +576,7 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
     ASIHTTPRequest *request = [ASIHTTPRequest requestWithURL:url];
     [request setRequestMethod:@"POST"];
     [request setDelegate:self];
-    [request setTimeOutSeconds:([self.wait doubleValue] + 4)];
+    [request setTimeOutSeconds:(self.wait + 4)];
     
     if(body) 
     {
@@ -635,23 +634,16 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
     return body && [body attributeForName:@"rid"]?[[[body attributeForName:@"rid"] stringValue] longLongValue]:-1;
 }
 
-- (NSXMLElement *)returnRootElement:(NSXMLDocument *)doc
-{
-    NSXMLElement *rootElement = [doc rootElement];
-    //[doc autorelease];
-    return rootElement;	
-}
-
 - (NSXMLElement *)parseXMLString:(NSString *)xml
 {
-    NSXMLDocument *doc = [[NSXMLDocument alloc] initWithXMLString:xml options:0 error:nil];
-    return [self returnRootElement:doc];
+    NSXMLDocument *doc = [[[NSXMLDocument alloc] initWithXMLString:xml options:0 error:nil] autorelease];
+    return [doc rootElement];
 }
 
 - (NSXMLElement *)parseXMLData:(NSData *)xml
 {
-    NSXMLDocument *doc = [[NSXMLDocument alloc] initWithData:xml options:0 error:nil];
-    return [self returnRootElement:doc];
+    NSXMLDocument *doc = [[[NSXMLDocument alloc] initWithData:xml options:0 error:nil] autorelease];
+    return [doc rootElement];
 }
 
 - (NSArray *)createXMLNodeArrayFromDictionary:(NSDictionary *)dict ofType:(XMLNodeType)type
@@ -676,14 +668,6 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
 - (long long)generateRid
 {
     return (arc4random() % 1000000000LL + 1000000001LL);
-}
-
-- (NSArray *)convertToStrings:(NSArray *)array
-{
-    NSMutableArray *mutableArray = [[NSMutableArray alloc] initWithCapacity:0];
-    for(id element in array)
-        [mutableArray addObject:[NSString stringWithFormat:@"%@", element]];
-    return [mutableArray autorelease];
 }
 
 - (SEL)setterForProperty:(NSString *)property
@@ -713,11 +697,7 @@ static const NSTimeInterval RETRY_DELAY = 1.0;
 
 - (void)dealloc
 {
-    [wait_ release];
-    [hold_ release];
     [multicastDelegate release];
-    [inactivity release];
-    [requests release];
     [url_ release];
     [domain_ release];
     [myJID_ release];

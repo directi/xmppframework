@@ -83,11 +83,6 @@ typedef enum {
 @interface BoshTransport : NSObject <XMPPTransportProtocol> {
 	NSString *boshVersion;
 
-	NSString *content;
-    NSString *STREAM_NS;
-    NSString *BODY_NS;
-    NSString *XMPP_NS;
-
     long long nextRidToSend;
 	long long maxRidProcessed;
     
@@ -104,13 +99,13 @@ typedef enum {
 }
 
 @property(retain) XMPPJID *myJID;
-@property(retain) NSNumber *wait;
-@property(retain) NSNumber *hold;
+@property(assign) unsigned int wait;
+@property(assign) unsigned int hold;
 @property(copy) NSString *lang;
 @property(copy) NSString *domain;
-@property(readonly) NSNumber *inactivity;
+@property(readonly) unsigned int inactivity;
 @property(readonly) BOOL secure;
-@property(readonly) NSNumber *requests;
+@property(readonly) unsigned int requests;
 @property(copy) NSString *authid;
 @property(copy) NSString *sid;
 @property(copy) NSString *url;
@@ -146,7 +141,6 @@ typedef enum {
 - (void)createSessionResponseHandler:(NSXMLElement *)parsedResponse;
 - (void)handleDisconnection;
 - (long long)generateRid;
-- (NSArray *)convertToStrings:(NSArray *)array;
 - (SEL)setterForProperty:(NSString *)property;
 - (NSNumber *)numberFromString:(NSString *)stringNumber;
 - (void)sendHTTPRequestWithBody:(NSXMLElement *)body;
