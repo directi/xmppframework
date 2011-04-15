@@ -106,15 +106,15 @@
 
 - (void)sentRequestForRid:(long long)rid
 {
-	NSAssert( ![self isWindowFull], @"Sending request when should not be: Exceeding request count" );
-	NSAssert ( rid == maxRidSent + 1, @"Sending request with rid = %qi greater than expected rid = %qi", rid, maxRidSent + 1);
+	NSAssert(![self isWindowFull], @"Sending request when should not be: Exceeding request count" );
+	NSAssert2(rid == maxRidSent + 1, @"Sending request with rid = %qi greater than expected rid = %qi", rid, maxRidSent + 1);
 	++maxRidSent;
 }
 
 - (void)recievedResponseForRid:(long long)rid
 {
-	NSAssert(rid > maxRidReceived, @"Recieving response for rid = %qi where maxRidReceived = %qi", rid, maxRidReceived);
-	NSAssert(rid <= maxRidReceived + windowSize, @"Recieved response for a request outside the rid window. responseRid = %qi, maxRidReceived = %qi, windowSize = %qi", rid, maxRidReceived, windowSize);
+	NSAssert2(rid > maxRidReceived, @"Recieving response for rid = %qi where maxRidReceived = %qi", rid, maxRidReceived);
+	NSAssert3(rid <= maxRidReceived + windowSize, @"Recieved response for a request outside the rid window. responseRid = %qi, maxRidReceived = %qi, windowSize = %qi", rid, maxRidReceived, windowSize);
     [receivedRids addLongLong:rid];
 	while ( [receivedRids containsLongLong:(maxRidReceived + 1)] )
 	{
