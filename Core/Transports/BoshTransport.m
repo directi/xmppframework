@@ -373,7 +373,8 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     [attr setObject:[NSString stringWithFormat:@"%u", self.wait] forKey:@"wait"];
     [attr setObject:[self.myJID bare] forKey:@"from"];
     [attr setObject:@"false" forKey:@"secure"];
-    [attr setObject:[NSString stringWithFormat:@"%u", self.inactivity] forKey:@"inactivity"];
+    [attr setObject:@"en" forKey:@"xml:lang"];
+    [attr setObject:@"1.0" forKey:@"xmpp:version"];
     
     NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: XMPP_NS, @"xmpp", nil];
     
