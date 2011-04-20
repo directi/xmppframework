@@ -153,19 +153,18 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 - (void)setRequests:(NSString *)maxRequests;
 - (BOOL)canConnect;
 - (void)handleAttributesInResponse:(NSXMLElement *)parsedResponse;
-- (NSString *)logRequestResponse:(NSData *)data;
 - (void)createSessionResponseHandler:(NSXMLElement *)parsedResponse;
 - (void)handleDisconnection;
 - (long long)generateRid;
+- (long long)getRidFromRequest:(ASIHTTPRequest *)request;
 - (SEL)setterForProperty:(NSString *)property;
 - (NSNumber *)numberFromString:(NSString *)stringNumber;
-- (void)sendHTTPRequestWithBody:(NSXMLElement *)body;
+- (void)sendHTTPRequestWithBody:(NSXMLElement *)body rid:(long long)rid;
 - (void)broadcastStanzas:(NSXMLNode *)node;
 - (void)trySendingStanzas;
 - (void)makeBodyAndSendHTTPRequestWithPayload:(NSArray *)bodyPayload 
                                    attributes:(NSMutableDictionary *)attributes 
                                    namespaces:(NSMutableDictionary *)namespaces;
-- (long long)getRidInRequest:(NSXMLElement *)body;
 - (NSXMLElement *)newBodyElementWithPayload:(NSArray *)payload 
                                  attributes:(NSMutableDictionary *)attributes 
                                  namespaces:(NSMutableDictionary *)namespaces;
@@ -390,7 +389,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 	NSXMLElement *requestPayload = [self newBodyElementWithPayload:bodyPayload 
                                                         attributes:attributes 
                                                         namespaces:namespaces];
-    [self sendHTTPRequestWithBody:requestPayload];
+    [self sendHTTPRequestWithBody:requestPayload rid:nextRidToSend];
     [boshWindowManager sentRequestForRid:nextRidToSend];
     ++nextRidToSend;
     
@@ -411,16 +410,19 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
             if ( [pendingXMPPStanzas count] > 0 )
             {
                 [self makeBodyAndSendHTTPRequestWithPayload:pendingXMPPStanzas 
-                                                 attributes:nil namespaces:nil];
+                                                 attributes:nil 
+                                                 namespaces:nil];
                 [pendingXMPPStanzas removeAllObjects];
             } else if ( [boshWindowManager isWindowEmpty] ) {
                 [self makeBodyAndSendHTTPRequestWithPayload:nil 
-                                                 attributes:nil namespaces:nil];                
+                                                 attributes:nil 
+                                                 namespaces:nil];                
             }
         }
         else if(state == DISCONNECTING) 
         { 
-            [self sendTerminateRequest]; 
+            [self sendTerminateRequest];
+            state = TERMINATING;
         }
     }
 }
@@ -555,6 +557,40 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     }
 }
 
+- (void)resendRequest:(ASIHTTPRequest *)request
+{
+    long long rid = [self getRidFromRequest:request];
+    [self sendHTTPRequestWithBody:[self parseXMLData:[request postBody]] rid:rid];
+}
+
+- (void)requestFailed:(ASIHTTPRequest *)request
+{
+    NSError *error = [request error];
+    long long rid = [self getRidFromRequest:request];
+    NSString *requestString = [[NSString alloc] initWithData:[request postBody] encoding:NSUTF8StringEncoding];
+    NSLog(@"BOSH: Request Failed[%qi] = %@", rid, requestString);
+    NSLog(@"Failure HTTP statusCode = %d, error domain = %@, error code = %d", [request responseStatusCode],[[request error] domain], [[request error] code]);
+    
+    BOOL shouldReconnect = ([error code] == ASIRequestTimedOutErrorType || [error code] == ASIConnectionFailureErrorType) && 
+    ( retryCounter < RETRY_COUNT_LIMIT ) && 
+    (state == CONNECTED);
+    ++retryCounter;
+    if(shouldReconnect) 
+    {
+        NSLog(@"Resending the request");
+        [self performSelector:@selector(resendRequest:) 
+                   withObject:request 
+                   afterDelay:RETRY_DELAY];
+    }
+    else 
+    {
+        NSLog(@"disconnecting due to request failure");
+        [multicastDelegate transportWillDisconnect:self withError:error];
+        state = DISCONNECTED;
+        [self handleDisconnection];
+    }
+}
+
 /* 
  Should call processRequestQueue after some timeOut 
  Handle terminate response sent in any request.
@@ -563,7 +599,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 {
     NSData *responseData = [request responseData];
     NSXMLElement *postBody = [self newXMLElementFromData:[request postBody]];
-    long long rid = [self getRidInRequest:postBody];
+    long long rid = [self getRidFromRequest:request];    
     
     NSLog(@"BOSH: RECD[%qi] = %@", rid, [request responseString]);
     
@@ -581,62 +617,38 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     [self processResponses];
     
     [self trySendingStanzas];
-
+    
     [postBody release];
 }
 
-
-/* Not sending terminate request to the server - just disconnecting */
-- (void)requestFailed:(ASIHTTPRequest *)request
-{
-    //if( ![self isConnected] ) return ;
-    NSError *error = [request error];
-    
-    NSLog(@"BOSH: Request Failed[%@", [self logRequestResponse:[request postBody]]);
-    NSLog(@"Failure HTTP statusCode = %d, error domain = %@, error code = %d", [request responseStatusCode],[[request error] domain], [[request error] code]);
-    
-    BOOL shouldReconnect = ([error code] == ASIRequestTimedOutErrorType || [error code] == ASIConnectionFailureErrorType) && 
-    ( retryCounter < RETRY_COUNT_LIMIT ) && 
-    (state == CONNECTED);
-    ++retryCounter;
-    if( shouldReconnect ) 
-    {
-        NSLog(@"Resending the request");
-        [self performSelector:@selector(sendHTTPRequestWithBody:) 
-                   withObject:[self parseXMLData:[request postBody]] 
-                   afterDelay:RETRY_DELAY];
-    }
-    else 
-    {
-        NSLog(@"disconnecting due to request failure");
-        [multicastDelegate transportWillDisconnect:self withError:error];
-        state = DISCONNECTED;
-        [self handleDisconnection];
-    }
-}
-
-- (void)sendHTTPRequestWithBody:(NSXMLElement *)body
+- (void)sendHTTPRequestWithBody:(NSXMLElement *)body rid:(long long)rid
 {
     ASIHTTPRequest *request = [ASIHTTPRequest requestWithURL:self.url];
     [request setRequestMethod:@"POST"];
     [request setDelegate:self];
     [request setTimeOutSeconds:(self.wait + 4)];
-    
+    request.userInfo = [NSDictionary dictionaryWithObject:[NSNumber numberWithLongLong:rid]
+                                                   forKey:@"rid"];
     if(body) 
     {
         [request appendPostData:[[body compactXMLString] dataUsingEncoding:NSUTF8StringEncoding]];
     }
     
     RequestResponsePair *pair = [[RequestResponsePair alloc] initWithRequest:body response:nil];
-    [requestResponsePairs setObject:pair forLongLongKey:[self getRidInRequest:body]];
+    [requestResponsePairs setObject:pair forLongLongKey:rid];
     
     [request startAsynchronous];
-    NSLog(@"BOSH: SEND[%@", [self logRequestResponse:[request postBody]]);
+    NSLog(@"BOSH: SEND[%qi] = %@", rid, body);
     return;
 }
 
 #pragma mark -
 #pragma mark utilities
+
+- (long long)getRidFromRequest:(ASIHTTPRequest *)request
+{
+    return [[[request userInfo] objectForKey:@"rid"] longLongValue];
+}
 
 - (NSXMLElement *)newBodyElementWithPayload:(NSArray *)payload 
                                  attributes:(NSMutableDictionary *)attributes 
@@ -683,12 +695,6 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     }
     
     return body;
-}
-
-- (long long)getRidInRequest:(NSXMLElement *)body
-{
-    
-    return body && [body attributeForName:@"rid"]?[[[body attributeForName:@"rid"] stringValue] longLongValue]:-1;
 }
 
 - (NSXMLElement *)parseXMLString:(NSString *)xml
@@ -747,14 +753,6 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     NSNumber *number = [formatter numberFromString:stringNumber];
     [formatter release];
     return number;
-}
-
-- (NSString *)logRequestResponse:(NSData *)data
-{
-    NSString *dataString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-    NSXMLElement *ele = [self parseXMLData:data];
-    long long rid = [self getRidInRequest:ele];
-    return [NSString stringWithFormat:@"%qi] = %@", rid, [dataString autorelease]];
 }
 
 - (void)dealloc

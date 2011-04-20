@@ -46,6 +46,7 @@ typedef enum {
     CONNECTING = 1,
     DISCONNECTING = 2,
     DISCONNECTED = 3,
+    TERMINATING = 4
 } BoshTransportState;
 
 @interface RequestResponsePair : NSObject
