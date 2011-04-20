@@ -1096,6 +1096,7 @@ enum XMPPStreamFlags
 		{
 			// We are successfully authenticated (via sasl:plain)
 			[self setIsAuthenticated:YES];
+			state = STATE_NEGOTIATING;
 			
 			// Now we start our negotiation over again...
 			[self restartStream];
