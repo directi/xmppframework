@@ -374,6 +374,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     [attr setObject:@"false" forKey:@"secure"];
     [attr setObject:@"en" forKey:@"xml:lang"];
     [attr setObject:@"1.0" forKey:@"xmpp:version"];
+    [attr setObject:@"3600" forKey:@"inactivity"];
     
     NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: XMPP_NS, @"xmpp", nil];
     
@@ -437,7 +438,6 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     NSUInteger level = [node level];
     while( (node = [node nextNode]) )
     {
-        
         if([node level] == level + 1)
         {
             [multicastDelegate transport:self 
