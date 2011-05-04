@@ -141,6 +141,9 @@
 
 static const int RETRY_COUNT_LIMIT = 25;
 static const NSTimeInterval RETRY_DELAY = 1.0;
+static const NSTimeInterval DELAY_UPPER_LIMIT = 128.0;
+static const NSTimeInterval DELAY_EXPONENTIATING_FACTOR = 2.0;
+static const NSTimeInterval INITIAL_RETRY_DELAY = 1.0;
 
 static const NSString *CONTENT_TYPE = @"text/xml; charset=utf-8";
 static const NSString *BODY_NS = @"http://jabber.org/protocol/httpbind";
@@ -254,6 +257,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         pendingXMPPStanzas = [[NSMutableArray alloc] initWithCapacity:25];
         requestResponsePairs = [[NSMutableDictionary alloc] initWithCapacity:3];
         retryCounter = 0;
+        nextRequestDelay = INITIAL_RETRY_DELAY;
         
         boshWindowManager = [[BoshWindowManager alloc] initWithRid:(nextRidToSend - 1)];
         [boshWindowManager setWindowSize:1];
@@ -571,16 +575,16 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     NSLog(@"BOSH: Request Failed[%qi] = %@", rid, requestString);
     NSLog(@"Failure HTTP statusCode = %d, error domain = %@, error code = %d", [request responseStatusCode],[[request error] domain], [[request error] code]);
     
-    BOOL shouldReconnect = ([error code] == ASIRequestTimedOutErrorType || [error code] == ASIConnectionFailureErrorType) && 
-    ( retryCounter < RETRY_COUNT_LIMIT ) && 
-    (state == CONNECTED);
-    ++retryCounter;
+    BOOL shouldReconnect = ([error code] == ASIRequestTimedOutErrorType || [error code] == ASIConnectionFailureErrorType) && ( retryCounter < RETRY_COUNT_LIMIT ) && 
+        (state == CONNECTED);
     if(shouldReconnect) 
     {
         NSLog(@"Resending the request");
         [self performSelector:@selector(resendRequest:) 
                    withObject:request 
-                   afterDelay:RETRY_DELAY];
+                   afterDelay:nextRequestDelay];
+        ++retryCounter;
+        nextRequestDelay *= DELAY_EXPONENTIATING_FACTOR;
     }
     else 
     {
@@ -604,6 +608,8 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     NSLog(@"BOSH: RECD[%qi] = %@", rid, [request responseString]);
     
     retryCounter = 0;
+    nextRequestDelay = INITIAL_RETRY_DELAY;
+    
     NSXMLElement *parsedResponse = [self parseXMLData:responseData];
     if ( !parsedResponse )
     {

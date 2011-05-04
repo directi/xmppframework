@@ -82,21 +82,22 @@ typedef enum {
 #pragma mark -
 
 @interface BoshTransport : NSObject <XMPPTransportProtocol> {
-	NSString *boshVersion;
+    NSString *boshVersion;
 
     long long nextRidToSend;
-	long long maxRidProcessed;
+    long long maxRidProcessed;
     
-	NSMutableArray *pendingXMPPStanzas;
-	BoshWindowManager *boshWindowManager;
+    NSMutableArray *pendingXMPPStanzas;
+    BoshWindowManager *boshWindowManager;
     BoshTransportState state;
     
     NSMutableDictionary *requestResponsePairs;
     
-	MulticastDelegate <XMPPTransportDelegate> *multicastDelegate;
+    MulticastDelegate <XMPPTransportDelegate> *multicastDelegate;
     NSError *disconnectError_;
     
     int retryCounter;
+    NSTimeInterval nextRequestDelay;
 }
 
 @property(retain) XMPPJID *myJID;
