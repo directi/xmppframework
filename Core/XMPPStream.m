@@ -74,6 +74,7 @@ enum XMPPStreamFlags
 
 @synthesize myJID;
 @synthesize remoteJID;
+@synthesize myPresence;
 @synthesize registeredModules;
 @synthesize tag = userTag;
 
@@ -132,6 +133,7 @@ enum XMPPStreamFlags
 	[myJID release];
 	[remoteJID release];
 	
+	[myPresence release];
 	[rootElement release];
 	
 	[registeredModules release];
@@ -795,16 +797,6 @@ enum XMPPStreamFlags
 	return [rootElement attributeFloatValueForName:@"version" withDefaultValue:0.0F];
 }
 
-- (XMPPJID *)myJID
-{
-	return myJID;
-}
-
-- (XMPPJID *)remoteJID
-{
-	return remoteJID;
-}
-
 /**
  * Private method.
  * Presencts a common method for the various public sendElement methods.
@@ -853,6 +845,24 @@ enum XMPPStreamFlags
 	}
 	else if ([element isKindOfClass:[XMPPPresence class]])
 	{
+		// Update myPresence if this is a normal presence element.
+		// In other words, ignore presence subscription stuff, MUC room stuff, etc.
+		
+		XMPPPresence *presence = (XMPPPresence *)element;
+		
+		// We use the built-in [presence type] which guarantees lowercase strings,
+		// and will return @"available" if there was no set type (as available is implicit).
+		
+		NSString *type = [presence type];
+		if ([type isEqualToString:@"available"] || [type isEqualToString:@"unavailable"])
+		{
+			if ([presence toStr] == nil)
+			{
+				[myPresence release];
+				myPresence = [presence retain];
+			}
+		}
+		
 		[multicastDelegate xmppStream:self didSendPresence:(XMPPPresence *)element];
 	}
 }

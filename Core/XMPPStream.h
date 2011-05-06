@@ -58,6 +58,7 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 	XMPPJID *myJID;
 	XMPPJID *remoteJID;
 	
+	XMPPPresence *myPresence;
 	NSXMLElement *rootElement;
 	
 	id registeredModules;
@@ -120,6 +121,14 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
  * Only used in P2P streams.
 **/
 @property (nonatomic, readwrite, copy) XMPPJID *remoteJID;
+
+/**
+ * Represents the last sent presence element concerning the presence of myJID on the server.
+ * In other words, it represents the presence as others see us.
+ * 
+ * This excludes presence elements sent concerning subscriptions, MUC rooms, etc.
+**/
+@property (nonatomic, readonly) XMPPPresence *myPresence;
 
 /**
  * Returns a list of all currently registered modules.

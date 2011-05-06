@@ -1,58 +1,49 @@
 #import "iPhoneXMPPAppDelegate.h"
 #import "RootViewController.h"
+#import "SettingsViewController.h"
 
 #import "XMPP.h"
 #import "XMPPRosterCoreDataStorage.h"
 #import "XMPPSocketTransport.h"
 #import "BoshTransport.h"
+#import "XMPPvCardAvatarModule.h"
+#import "XMPPvCardCoreDataStorageController.h"
+#import "XMPPvCardTempModule.h"
 
 #import <CFNetwork/CFNetwork.h>
 
+
 @implementation iPhoneXMPPAppDelegate
+
 
 @synthesize xmppStream;
 @synthesize xmppRoster;
 @synthesize xmppRosterStorage;
+@synthesize xmppvCardAvatarModule = _xmppvCardAvatarModule;
+@synthesize xmppvCardTempModule = _xmppvCardTempModule;
 
 @synthesize window;
 @synthesize navigationController;
+@synthesize loginButton = _loginButton;
+@synthesize settingsViewController = _settingsViewController;
 
-- (void)applicationDidFinishLaunching:(UIApplication *)application
+
+- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
-	transport = [[BoshTransport alloc] initWithUrl:@"http://localhost:5280/http-bind" forDomain:@"directi.com"];
-    //[transport setMyJID:[XMPPJID jidWithString:@"satyam.s@directi.com"]];
-    
-    //173.255.205.197
-    // Replace me with the proper host name and port
-    //transport = [[XMPPSocketTransport alloc] initWithHost:@"internal.chat.pw" port:5222];
-    //transport = [[XMPPSocketTransport alloc] init];
-    xmppStream = [[XMPPStream alloc] initWithTransport:transport];
-    xmppRosterStorage = [[XMPPRosterCoreDataStorage alloc] init];
-    xmppRoster = [[XMPPRoster alloc] initWithStream:xmppStream rosterStorage:xmppRosterStorage];
-    
-    [transport addDelegate:self];
-    [xmppStream addDelegate:self];
-    [xmppRoster addDelegate:self];
-    
-    [xmppRoster setAutoRoster:YES];
-    
-    // Replace me with the proper JID and password
-    [xmppStream setMyJID:[XMPPJID jidWithString:@"satyam.s@directi.com/iPhoneTest"]];
-    password = @"shekhar123";
-    
-    // You may need to alter these settings depending on the server you're connecting to
-	allowSelfSignedCertificates = NO;
-	allowSSLHostNameMismatch = NO;
-	
-	// Uncomment me when the proper information has been entered above.
-	NSError *error = nil;
-	if (![xmppStream connect:&error])
-	{
-		NSLog(@"Error connecting: %@", error);
-	}
-	
-	[window addSubview:[navigationController view]];
-	[window makeKeyAndVisible];
+  //[window addSubview:[navigationController view]];
+  self.window.rootViewController = self.navigationController;
+	[self.window makeKeyAndVisible];
+
+  [self setupStream];
+  
+  NSString *myJID = [[NSUserDefaults standardUserDefaults] stringForKey:kXMPPmyJID];
+  NSString *myPassword = [[NSUserDefaults standardUserDefaults] stringForKey:kXMPPmyPassword];
+
+  if (myJID == nil || myPassword == nil) {
+    [self.navigationController presentModalViewController:self.settingsViewController animated:YES];
+  }
+	  
+  return YES;
 }
 
 - (void)dealloc
@@ -61,11 +52,15 @@
 	[xmppRoster removeDelegate:self];
 	
 	[xmppStream disconnect];
+  [_xmppvCardAvatarModule release];
+  [_xmppvCardTempModule release];
 	[xmppStream release];
 	[xmppRoster release];
 	
 	[password release];
 	
+  [_loginButton release];
+  [_settingsViewController release];
 	[navigationController release];
 	[window release];
 	
@@ -75,6 +70,61 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark Custom
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+- (BOOL)connect {
+  if ([xmppStream isConnected]) {
+    return YES;
+  }
+  
+  //
+  // Uncomment the section below to hard code a JID and password.
+  //
+  // Replace me with the proper JID and password
+  //	[xmppStream setMyJID:[XMPPJID jidWithString:@"user@gmail.com/iPhoneTest"]];
+  //	password = @"password";
+  
+  // If you are NOT using SRV lookup based on the JID above,
+  // replace me with the proper domain and port.
+  // The example below is setup for a typical google talk account.
+  //	[xmppStream setHostName:@"talk.google.com"];
+  //	[xmppStream setHostPort:5222];
+  //
+  //  return YES;
+  
+  // or
+
+  NSString *myJID = [[NSUserDefaults standardUserDefaults] stringForKey:kXMPPmyJID];
+  NSString *myPassword = [[NSUserDefaults standardUserDefaults] stringForKey:kXMPPmyPassword];
+  
+  if (myJID != nil && myPassword != nil) {
+    [xmppStream setMyJID:[XMPPJID jidWithString:myJID]];
+    password = myPassword;
+    
+    // Uncomment me when the proper information has been entered above.
+    NSError *error = nil;
+    if ([xmppStream connect:&error])
+    {
+      return YES;
+    }
+    UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:@"Error connecting" 
+                                                        message:@"See console for error details." 
+                                                       delegate:nil 
+                                              cancelButtonTitle:@"Ok" 
+                                              otherButtonTitles:nil];
+    [alertView show];
+    [alertView release];
+    NSLog(@"Error connecting: %@", error);
+  }
+  return NO;
+  
+}
+
+- (void)disconnect {
+  [self goOffline];
+  
+  [xmppStream disconnect];
+}
 
 // It's easy to create XML elments to send and to read received XML elements.
 // You have the entire NSXMLElement and NSXMLNode API's.
@@ -101,6 +151,28 @@
 	
 	[[self xmppStream] sendElement:presence];
 }
+
+- (void)setupStream {
+	transport = [[BoshTransport alloc] initWithUrl:@"http://localhost:5280/http-bind" forDomain:@"directi.com"];
+    xmppStream = [[XMPPStream alloc] initWithTransport:transport];
+	xmppRosterStorage = [[XMPPRosterCoreDataStorage alloc] init];
+	xmppRoster = [[XMPPRoster alloc] initWithStream:xmppStream rosterStorage:xmppRosterStorage];
+	
+    [transport addDelegate:self];
+	[xmppStream addDelegate:self];
+	[xmppRoster addDelegate:self];
+	
+	[xmppRoster setAutoRoster:YES];
+  
+  _xmppvCardTempModule = [[XMPPvCardTempModule alloc] initWithStream:xmppStream 
+                                                             storage:[XMPPvCardCoreDataStorageController sharedXMPPvCardCoreDataStorageController]];
+  _xmppvCardAvatarModule = [[XMPPvCardAvatarModule alloc] initWithvCardTempModule:_xmppvCardTempModule];
+  
+  // You may need to alter these settings depending on the server you're connecting to
+	allowSelfSignedCertificates = NO;
+	allowSSLHostNameMismatch = NO;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark XMPPStream Delegate
@@ -142,6 +214,9 @@
 				expectedCertName = serverDomain;
 			}
 		}
+    else if (serverDomain == nil) {
+      expectedCertName = virtualDomain;
+    }
 		else
 		{
 			expectedCertName = serverDomain;

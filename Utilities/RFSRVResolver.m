@@ -141,8 +141,8 @@ NSString * kRFSRVResolverErrorDomain = @"kRFSRVResolverErrorDomain";
 	if ((self = [super init])) {
 		self.transport = transport;
 		self.results = [NSMutableArray arrayWithCapacity:1];
-    }
-    return self;
+  }
+  return self;
 }
 
 - (void)dealloc
@@ -151,39 +151,39 @@ NSString * kRFSRVResolverErrorDomain = @"kRFSRVResolverErrorDomain";
     [_error release];
     [_results release];
     
-    [_timeoutTimer invalidate];
-    [_timeoutTimer release];
-    
-    [super dealloc];
+  [_timeoutTimer invalidate];
+  [_timeoutTimer release];
+  
+  [super dealloc];
 }
 
 #pragma mark Public methods
 	 
 - (void)start
 {
-    if (self->_sdRef == NULL) {
-	//	NSLog(@"%s",__PRETTY_FUNCTION__);
-        self.error    = nil;            // starting up again, so forget any previous error
-        self.finished = NO;
-        
-        self.timeoutTimer = [NSTimer scheduledTimerWithTimeInterval:RFSRVRESOLVER_TIMEOUT
-                                                             target:self
-                                                           selector:@selector(_didTimeoutTimer:)
-                                                           userInfo:nil
-                                                            repeats:NO];
-        
-        [self _start];
+  if (self->_sdRef == NULL) {
+    //	NSLog(@"%s",__PRETTY_FUNCTION__);
+    self.error    = nil;            // starting up again, so forget any previous error
+    self.finished = NO;
+    
+    self.timeoutTimer = [NSTimer scheduledTimerWithTimeInterval:RFSRVRESOLVER_TIMEOUT
+                                                         target:self
+                                                       selector:@selector(_didTimeoutTimer:)
+                                                       userInfo:nil
+                                                        repeats:NO];
+    
+    [self _start];
 	}
 }
 
 - (void)stop
 {
-    [self _closeSockets];
-    
-    [self.timeoutTimer invalidate];
-    self.timeoutTimer = nil;
-    
-    self.finished = YES;
+  [self _closeSockets];
+  
+  [self.timeoutTimer invalidate];
+  self.timeoutTimer = nil;
+  
+  self.finished = YES;
 
 	[self sortResults];
 }
@@ -412,7 +412,6 @@ static void SDRefSocketCallback(
 	
 	
 	NSString *srvName = [NSString stringWithFormat:@"_xmpp-client._tcp.%@", [[self.transport myJID] domain]];
-	
 	DDLogVerbose(@"%s Looking up %@...",__PRETTY_FUNCTION__,srvName);	
     
     srvNameCStr = [srvName cStringUsingEncoding:NSASCIIStringEncoding];
@@ -593,7 +592,7 @@ static void SDRefSocketCallback(
 	}
 	
 	self.results = sortedResults;
-    DDLogVerbose(@"%s Sorted results: %@",__PRETTY_FUNCTION__, self.results);
+  DDLogVerbose(@"%s Sorted results: %@",__PRETTY_FUNCTION__, self.results);
 }
 
 @end
