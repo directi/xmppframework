@@ -151,12 +151,15 @@ NSString *const kXMPPvCardAvatarPhotoElement = @"photo";
 	 * If the client subsequently obtains an avatar image (e.g., by updating or retrieving the vCard), 
 	 * it SHOULD then publish a new <presence/> stanza with character data in the <photo/> element.
 	 */
+  
+  /* TODO: This fragment is breaking the code, need to check why. Commenting for now.
 	if ([jid isEqual:[[aXmppStream myJID] bareJID]])
 	{
 		XMPPPresence *presence = aXmppStream.myPresence;
 		if (presence)
 			[aXmppStream sendElement:presence];
 	}
+   */
 }
 
 
