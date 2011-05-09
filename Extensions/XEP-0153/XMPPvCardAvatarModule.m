@@ -28,6 +28,8 @@
 #import "XMPPPresence.h"
 #import "XMPPvCardTempModule.h"
 
+#import "ASIHTTPRequest.h"
+
 
 NSString *const kXMPPvCardAvatarElement = @"x";
 NSString *const kXMPPvCardAvatarNS = @"vcard-temp:x:update";
@@ -146,6 +148,36 @@ NSString *const kXMPPvCardAvatarPhotoElement = @"photo";
         didReceivevCardTemp:(XMPPvCardTemp *)vCardTemp 
                      forJID:(XMPPJID *)jid
                  xmppStream:(XMPPStream *)aXmppStream {
+  NSData *photo = vCardTemp.photo;
+  if (photo == nil) {
+    //Check for EXTVAL, an external URL.
+    NSXMLElement *photoElement = [vCardTemp elementForName:@"PHOTO"];
+    NSXMLElement *extval = [photoElement elementForName:@"EXTVAL"];
+    
+    if (extval) {
+      //Fetch from the URL.
+      NSURL *url = [NSURL URLWithString:[extval stringValue]];
+      
+      //Set user agent, otherwise, its getting too-many-redirection error.
+      NSMutableDictionary *headers  = [NSMutableDictionary dictionaryWithCapacity:4];
+      [headers setObject:@"Firefox" forKey:@"User-Agent"];
+      
+      ASIHTTPRequest *request = [ASIHTTPRequest requestWithURL:url];
+      [request setDelegate:self];
+      [request setRequestMethod:@"GET"];
+      [request setRequestHeaders:headers];
+      [request setNumberOfTimesToRetryOnTimeout:4];
+      [request setUserInfo:[NSDictionary dictionaryWithObject:jid forKey:@"jid"]];
+      [request setDidFinishSelector:@selector(fetchedPhoto:)];
+      [request startAsynchronous];
+    }
+  }
+
+  if (photo != nil) {
+    [multicastDelegate xmppvCardAvatarModule:self
+                         didReceivePhotoData:photo
+                                      forJID:jid];
+  }
 	/*
 	 * XEP-0153 4.1.3
 	 * If the client subsequently obtains an avatar image (e.g., by updating or retrieving the vCard), 
@@ -162,6 +194,18 @@ NSString *const kXMPPvCardAvatarPhotoElement = @"photo";
    */
 }
 
+
+#pragma mark - Get photo from external URL
+
+- (void)fetchedPhoto:(ASIHTTPRequest *)request {
+  NSData *photo = [request responseData];
+  if ([photo length] == 0) {
+    return;
+  }
+  [multicastDelegate xmppvCardAvatarModule:self
+                       didReceivePhotoData:[request responseData]
+                                    forJID:[request.userInfo objectForKey:@"jid"]];
+}
 
 #pragma mark -
 #pragma mark Getter/setter methods
