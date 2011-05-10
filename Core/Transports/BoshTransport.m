@@ -379,6 +379,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     [attr setObject:@"en" forKey:@"xml:lang"];
     [attr setObject:@"1.0" forKey:@"xmpp:version"];
     [attr setObject:@"3600" forKey:@"inactivity"];
+    [attr setObject:@"iphone" forKey:@"ua"];
     
     NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: XMPP_NS, @"xmpp", nil];
     
