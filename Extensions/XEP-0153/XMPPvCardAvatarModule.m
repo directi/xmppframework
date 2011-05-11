@@ -140,6 +140,31 @@ NSString *const kXMPPvCardAvatarPhotoElement = @"photo";
 }
 
 
+#pragma mark - Private method for received my avatar
+
+- (void)didReceivePhoto:(NSData *)photo forJid:(XMPPJID *)jid {
+  [multicastDelegate xmppvCardAvatarModule:self
+                       didReceivePhotoData:photo
+                                    forJID:jid];
+  /*
+	 * XEP-0153 4.1.3
+	 * If the client subsequently obtains an avatar image (e.g., by updating or retrieving the vCard), 
+	 * it SHOULD then publish a new <presence/> stanza with character data in the <photo/> element.
+	 */
+
+  if ([jid isEqual:[self.xmppStream.myJID bareJID]]) {
+    //MyPresence is being released before it it set to the latest presence.
+    //In this case, the only presence element was being released and so, errors were encountered.
+    //Hence, presence should be retained for some time.
+    XMPPPresence *presence = [self.xmppStream.myPresence retain];
+    if (presence) {
+      [self.xmppStream sendElement:presence];
+    }
+    [presence release];
+  }
+}
+
+
 #pragma mark -
 #pragma mark XMPPvCardTempModuleDelegate
 
@@ -174,24 +199,8 @@ NSString *const kXMPPvCardAvatarPhotoElement = @"photo";
   }
 
   if (photo != nil) {
-    [multicastDelegate xmppvCardAvatarModule:self
-                         didReceivePhotoData:photo
-                                      forJID:jid];
+    [self didReceivePhoto:photo forJid:jid];
   }
-	/*
-	 * XEP-0153 4.1.3
-	 * If the client subsequently obtains an avatar image (e.g., by updating or retrieving the vCard), 
-	 * it SHOULD then publish a new <presence/> stanza with character data in the <photo/> element.
-	 */
-  
-  /* TODO: This fragment is breaking the code, need to check why. Commenting for now.
-	if ([jid isEqual:[[aXmppStream myJID] bareJID]])
-	{
-		XMPPPresence *presence = aXmppStream.myPresence;
-		if (presence)
-			[aXmppStream sendElement:presence];
-	}
-   */
 }
 
 
@@ -202,9 +211,7 @@ NSString *const kXMPPvCardAvatarPhotoElement = @"photo";
   if ([photo length] == 0) {
     return;
   }
-  [multicastDelegate xmppvCardAvatarModule:self
-                       didReceivePhotoData:[request responseData]
-                                    forJID:[request.userInfo objectForKey:@"jid"]];
+  [self didReceivePhoto:photo forJid:[request.userInfo objectForKey:@"jid"]];
 }
 
 #pragma mark -
