@@ -151,9 +151,10 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 @interface BoshTransport()
 @property(readwrite, assign) NSError *disconnectError;
-- (void)setInactivity:(NSString *)givenInactivity;
-- (void)setSecure:(NSString *)isSecure;
-- (void)setRequests:(NSString *)maxRequests;
+- (void)setInactivityFromString:(NSString *)givenInactivity;
+- (void)setSecureFromString:(NSString *)isSecure;
+- (void)setRequestsFromString:(NSString *)maxRequests;
+- (void)setSidFromString:(NSString *)sid;
 - (BOOL)canConnect;
 - (void)handleAttributesInResponse:(NSXMLElement *)parsedResponse;
 - (void)createSessionResponseHandler:(NSXMLElement *)parsedResponse;
@@ -198,20 +199,25 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 #pragma mark -
 #pragma mark Private Accessor Method Implementation
 
-- (void)setInactivity:(NSString *)inactivityString
+- (void)setSidFromString:(NSString *)sid {
+  self.sid = sid;
+}
+
+- (void)setInactivityFromString:(NSString *)inactivityString
 {
+  NSLog(@"Setting inactiviey");
     NSNumber *givenInactivity = [self numberFromString:inactivityString];
     inactivity = [givenInactivity unsignedIntValue];
 }
 
-- (void)setRequests:(NSString *)requestsString
+- (void)setRequestsFromString:(NSString *)requestsString
 {
     NSNumber *maxRequests = [self numberFromString:requestsString];
     [boshWindowManager setWindowSize:[maxRequests unsignedIntValue]];
     requests = [maxRequests unsignedIntValue];
 }
 
-- (void)setSecure:(NSString *)isSecure
+- (void)setSecureFromString:(NSString *)isSecure
 {
     if ([isSecure isEqualToString:@"true"]) secure=YES;
     else secure = NO;
@@ -244,7 +250,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         if( delegate != nil ) [multicastDelegate addDelegate:delegate];
 		
         sid_ = nil;
-        inactivity = 0.0;
+        inactivity = 48 * 3600;
         requests = 2;
         url_ = [url retain];
 
@@ -378,7 +384,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     [attr setObject:@"false" forKey:@"secure"];
     [attr setObject:@"en" forKey:@"xml:lang"];
     [attr setObject:@"1.0" forKey:@"xmpp:version"];
-    [attr setObject:@"3600" forKey:@"inactivity"];
+    [attr setObject:[NSString stringWithFormat:@"%u", self.inactivity] forKey:@"inactivity"];
     [attr setObject:@"iphone" forKey:@"ua"];
     
     NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: XMPP_NS, @"xmpp", nil];
@@ -520,7 +526,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     /* Not doing anything with namespaces right now - because chirkut doesn't send it */
     //NSArray *responseNamespaces = [rootElement namespaces];
     
-	state = CONNECTED;
+    state = CONNECTED;
     [multicastDelegate transportDidConnect:self];
     [multicastDelegate transportDidStartNegotiation:self];
 }
@@ -749,7 +755,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 {
     NSString *setter = @"set";
     setter = [setter stringByAppendingString:[property capitalizedString]];
-    setter = [setter stringByAppendingString:@":"];
+    setter = [setter stringByAppendingString:@"FromString:"];
     return NSSelectorFromString(setter);
 }
 
