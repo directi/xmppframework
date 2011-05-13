@@ -105,7 +105,7 @@ typedef enum {
 @property(assign) unsigned int hold;
 @property(copy) NSString *lang;
 @property(copy) NSString *domain;
-@property(readonly) unsigned int inactivity;
+@property(assign) unsigned int inactivity;
 @property(readonly) BOOL secure;
 @property(readonly) unsigned int requests;
 @property(copy) NSString *authid;
