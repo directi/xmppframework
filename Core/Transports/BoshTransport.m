@@ -425,7 +425,9 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
                                                  attributes:nil 
                                                  namespaces:nil];
                 [pendingXMPPStanzas removeAllObjects];
-            } else if ( [boshWindowManager isWindowEmpty] ) {
+            } 
+            else if ([boshWindowManager isWindowEmpty]) 
+            {
                 [self makeBodyAndSendHTTPRequestWithPayload:nil 
                                                  attributes:nil 
                                                  namespaces:nil];                
@@ -435,6 +437,13 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         { 
             [self sendTerminateRequest];
             state = TERMINATING;
+        }
+        else if ([boshWindowManager isWindowEmpty] && state == TERMINATING) 
+        {
+            /* sending more empty requests till we get a terminate response */
+            [self makeBodyAndSendHTTPRequestWithPayload:nil 
+                                             attributes:nil 
+                                             namespaces:nil];                
         }
     }
 }
