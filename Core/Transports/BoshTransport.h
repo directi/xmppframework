@@ -62,8 +62,8 @@ typedef enum {
  * Handles the in-order processing of responses.
  **/
 @interface BoshWindowManager : NSObject {
-	long long maxRidReceived; // all rid value less than equal to maxRidReceived are processed.
-	long long maxRidSent;
+    long long maxRidReceived; // all rid value less than equal to maxRidReceived are processed.
+    long long maxRidSent;
     NSMutableSet *receivedRids;
 }
 

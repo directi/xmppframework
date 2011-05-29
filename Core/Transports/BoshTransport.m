@@ -68,19 +68,19 @@
 
 - (id) initWithRequest:(NSXMLElement *)request response:(NSXMLElement *)response
 {
-	if( (self = [super init]) ) 
+    if( (self = [super init]) ) 
     {
-		request_ = request;
-		response_ = response;
-	}
-	return self;
+        request_ = request;
+        response_ = response;
+    }
+    return self;
 }
 
 - (void)dealloc
 {
-	[request_ release];
-	[response_ release];
-	[super dealloc];
+    [request_ release];
+    [response_ release];
+    [super dealloc];
 }
 @end
 
@@ -94,42 +94,42 @@
 
 - (id)initWithRid:(long long)rid
 {
-	if((self = [super init]))
-	{
-		windowSize = 0;
-		maxRidSent = rid;
-		maxRidReceived = rid;
+    if((self = [super init]))
+    {
+        windowSize = 0;
+        maxRidSent = rid;
+        maxRidReceived = rid;
         receivedRids = [[NSMutableSet alloc] initWithCapacity:2];
-	}
-	return self;
+    }
+    return self;
 }
 
 - (void)sentRequestForRid:(long long)rid
 {
-	NSAssert(![self isWindowFull], @"Sending request when should not be: Exceeding request count" );
-	NSAssert2(rid == maxRidSent + 1, @"Sending request with rid = %qi greater than expected rid = %qi", rid, maxRidSent + 1);
-	++maxRidSent;
+    NSAssert(![self isWindowFull], @"Sending request when should not be: Exceeding request count" );
+    NSAssert2(rid == maxRidSent + 1, @"Sending request with rid = %qi greater than expected rid = %qi", rid, maxRidSent + 1);
+    ++maxRidSent;
 }
 
 - (void)recievedResponseForRid:(long long)rid
 {
-	NSAssert2(rid > maxRidReceived, @"Recieving response for rid = %qi where maxRidReceived = %qi", rid, maxRidReceived);
-	NSAssert3(rid <= maxRidReceived + windowSize, @"Recieved response for a request outside the rid window. responseRid = %qi, maxRidReceived = %qi, windowSize = %qi", rid, maxRidReceived, windowSize);
+    NSAssert2(rid > maxRidReceived, @"Recieving response for rid = %qi where maxRidReceived = %qi", rid, maxRidReceived);
+    NSAssert3(rid <= maxRidReceived + windowSize, @"Recieved response for a request outside the rid window. responseRid = %qi, maxRidReceived = %qi, windowSize = %qi", rid, maxRidReceived, windowSize);
     [receivedRids addLongLong:rid];
-	while ( [receivedRids containsLongLong:(maxRidReceived + 1)] )
-	{
-		++maxRidReceived;
-	}
+    while ( [receivedRids containsLongLong:(maxRidReceived + 1)] )
+    {
+        ++maxRidReceived;
+    }
 }
 
 - (BOOL)isWindowFull
 {
-	return (maxRidSent - maxRidReceived) == windowSize;
+    return (maxRidSent - maxRidReceived) == windowSize;
 }
 
 - (BOOL)isWindowEmpty
 {
-	return (maxRidSent - maxRidReceived) < 1;
+    return (maxRidSent - maxRidReceived) < 1;
 }
 
 - (void) dealloc
@@ -199,13 +199,13 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 #pragma mark -
 #pragma mark Private Accessor Method Implementation
 
-- (void)setSidFromString:(NSString *)sid {
-  self.sid = sid;
+- (void)setSidFromString:(NSString *)sid 
+{
+    self.sid = sid;
 }
 
 - (void)setInactivityFromString:(NSString *)inactivityString
 {
-  NSLog(@"Setting inactiviey");
     NSNumber *givenInactivity = [self numberFromString:inactivityString];
     inactivity = [givenInactivity unsignedIntValue];
 }
@@ -398,7 +398,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
                                    attributes:(NSMutableDictionary *)attributes 
                                    namespaces:(NSMutableDictionary *)namespaces
 {
-	NSXMLElement *requestPayload = [self newBodyElementWithPayload:bodyPayload 
+    NSXMLElement *requestPayload = [self newBodyElementWithPayload:bodyPayload 
                                                         attributes:attributes 
                                                         namespaces:namespaces];
     [self sendHTTPRequestWithBody:requestPayload rid:nextRidToSend];
@@ -671,7 +671,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     namespaces = namespaces?namespaces:[NSMutableDictionary dictionaryWithCapacity:1];
     
     /* Adding ack and sid attribute on every outgoing request after sid is created */
-	if( self.sid ) 
+    if( self.sid ) 
     {
         [attributes setValue:self.sid forKey:@"sid"];
         long long ack = maxRidProcessed;
@@ -696,7 +696,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
                                                             ofType:ATTR_TYPE];
     [body setNamespaces:namespaceArray];
     [body setAttributes:attributesArray];
-	[namespaceArray release];
+    [namespaceArray release];
     [attributesArray release];
     
     if(payload != nil)
@@ -730,16 +730,23 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
                                     ofType:(XMLNodeType)type
 {
     NSMutableArray *array = [[NSMutableArray alloc] init];
-    for (NSString *key in dict) {
+    for (NSString *key in dict) 
+    {
         NSString *value = [dict objectForKey:key];
         NSXMLNode *node;
         
         if(type == ATTR_TYPE) 
+        {
             node = [NSXMLNode attributeWithName:key stringValue:value];
+        }
         else if(type == NAMESPACE_TYPE)
+        {
             node = [NSXMLNode namespaceWithName:key stringValue:value];
-        else 
+        }
+        else
+        {
             NSLog(@"BOSH: Wrong Type Passed to createArrayFrom Dictionary");
+        }
 		
         [array addObject:node];
     }
