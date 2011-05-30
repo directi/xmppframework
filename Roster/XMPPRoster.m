@@ -380,7 +380,7 @@ enum XMPPRosterFlags
 	{
 		if (![self hasRoster])
 		{
-      [self performSelectorInBackground:@selector(updateRosterWithQuery:) withObject:query];
+      [self updateRosterWithQuery:query];
 		} else {
             NSArray *items = [query elementsForName:@"item"];
             for (NSXMLElement *item in items)

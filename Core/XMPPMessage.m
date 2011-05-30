@@ -95,21 +95,37 @@
 	return (receiptRequest != nil);
 }
 
-- (BOOL)hasReceiptResponse
+- (BOOL)hasReceivedReceiptResponse
 {
-	NSXMLElement *receiptResponse = [self elementForName:@"received" xmlns:@"urn:xmpp:receipts"];
+	NSXMLElement *receivedReceiptResponse = [self elementForName:@"received" xmlns:@"urn:xmpp:receipts"];
 	
-	return (receiptResponse != nil);
+	return (receivedReceiptResponse != nil);
 }
 
-- (NSString *)extractReceiptResponseID
+- (BOOL)hasReadReceiptResponse
 {
-	NSXMLElement *receiptResponse = [self elementForName:@"received" xmlns:@"urn:xmpp:receipts"];
+  NSXMLElement *readReceiptResponse = [self elementForName:@"read" xmlns:@"urn:xmpp:receipts"];
 	
-	return [receiptResponse attributeStringValueForName:@"id"];
+	return (readReceiptResponse != nil); 
 }
 
-- (XMPPMessage *)generateReceiptResponse
+- (NSString *)extractReceivedReceiptResponseID
+{
+	NSXMLElement *receivedReceiptResponse = [self elementForName:@"received" xmlns:@"urn:xmpp:receipts"];
+	
+	return [receivedReceiptResponse attributeStringValueForName:@"id"];
+}
+
+
+- (NSString *)extractReadReceiptResponseID
+{
+	NSXMLElement *readReceiptResponse = [self elementForName:@"read" xmlns:@"urn:xmpp:receipts"];
+	
+	return [readReceiptResponse attributeStringValueForName:@"id"];
+}
+
+
+- (XMPPMessage *)generateReceiptResponse:(NSString *)receiptType
 {
 	// Example:
 	// 
@@ -117,7 +133,7 @@
 	//   <received xmlns="urn:xmpp:receipts" id="ABC-123"/>
 	// </message>
 	
-	NSXMLElement *received = [NSXMLElement elementWithName:@"received" xmlns:@"urn:xmpp:receipts"];
+	NSXMLElement *received = [NSXMLElement elementWithName:receiptType xmlns:@"urn:xmpp:receipts"];
 	
 	NSXMLElement *message = [NSXMLElement elementWithName:@"message"];
 	
@@ -138,4 +154,13 @@
 	return [[self class] messageFromElement:message];
 }
 
+- (XMPPMessage *)generateReceivedReceiptResponse
+{
+  return [self generateReceiptResponse:@"received"];
+}
+
+- (XMPPMessage *)generateReadReceiptResponse
+{
+  return [self generateReceiptResponse:@"read"];
+}
 @end

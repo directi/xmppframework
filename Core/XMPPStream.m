@@ -940,7 +940,7 @@ enum XMPPStreamFlags
 	// Don't forget about that NSXMLElement bug you reported to apple (xmlns is required or element won't be found)
 	NSXMLElement *f_bind = [features elementForName:@"bind" xmlns:@"urn:ietf:params:xml:ns:xmpp-bind"];
 	
-	if (f_bind)
+	if ([self isAuthenticated] && f_bind)
 	{
 		// Binding is required for this connection
 		state = STATE_BINDING;
