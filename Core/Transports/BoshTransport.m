@@ -479,31 +479,31 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         {
             NSString *condition = [conditionNode stringValue];
             if( [condition isEqualToString:@"host-unknown"] )
-                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" 
+                disconnectError_ = [[NSError alloc] initWithDomain:BoshTerminateConditionDomain
                                                               code:HOST_UNKNOWN userInfo:nil];
             else if ( [condition isEqualToString:@"host-gone"] ) 
-                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" 
+                disconnectError_ = [[NSError alloc] initWithDomain:BoshTerminateConditionDomain
                                                               code:HOST_GONE userInfo:nil];
             else if( [condition isEqualToString:@"item-not-found"] )
-                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" 
+                disconnectError_ = [[NSError alloc] initWithDomain:BoshTerminateConditionDomain
                                                               code:ITEM_NOT_FOUND userInfo:nil];
             else if ( [condition isEqualToString:@"policy-violation"] ) 
-                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" 
+                disconnectError_ = [[NSError alloc] initWithDomain:BoshTerminateConditionDomain
                                                               code:POLICY_VIOLATION userInfo:nil];
             else if( [condition isEqualToString:@"remote-connection-failed"] )
-                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" 
+                disconnectError_ = [[NSError alloc] initWithDomain:BoshTerminateConditionDomain
                                                               code:REMOTE_CONNECTION_FAILED userInfo:nil];
             else if ( [condition isEqualToString:@"bad-request"] ) 
-                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" 
+                disconnectError_ = [[NSError alloc] initWithDomain:BoshTerminateConditionDomain
                                                               code:BAD_REQUEST userInfo:nil];
             else if( [condition isEqualToString:@"internal-server-error"] )
-                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" 
+                disconnectError_ = [[NSError alloc] initWithDomain:BoshTerminateConditionDomain
                                                               code:INTERNAL_SERVER_ERROR userInfo:nil];
             else if ( [condition isEqualToString:@"remote-stream-error"] ) 
-                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" 
+                disconnectError_ = [[NSError alloc] initWithDomain:BoshTerminateConditionDomain
                                                               code:REMOTE_STREAM_ERROR userInfo:nil];
             else if ( [condition isEqualToString:@"undefined-condition"] ) 
-                disconnectError_ = [[NSError alloc] initWithDomain:@"BoshTerminateCondition" 
+                disconnectError_ = [[NSError alloc] initWithDomain:BoshTerminateConditionDomain
                                                               code:UNDEFINED_CONDITION userInfo:nil];
             else NSAssert( false, @"Terminate Condition Not Valid");
         }
