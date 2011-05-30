@@ -29,6 +29,8 @@ typedef enum {
  undefined-condition
  */
 
+#define BoshTerminateConditionDomain @"BoshTerminateCondition"
+
 typedef enum {
     HOST_UNKNOWN = 1,
     HOST_GONE = 2,
