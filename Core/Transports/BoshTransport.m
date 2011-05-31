@@ -567,6 +567,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         ++maxRidProcessed;
         RequestResponsePair *pair = [requestResponsePairs objectForLongLongKey:maxRidProcessed];
         NSAssert( [pair response], @"Processing nil response" );
+        [self handleAttributesInResponse:[pair response]];
         [self broadcastStanzas:[pair response]];
         [requestResponsePairs removeObjectForLongLongKey:maxRidProcessed];
         if ( state == DISCONNECTED )
@@ -617,6 +618,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 - (void)requestFinished:(ASIHTTPRequest *)request
 {
     NSData *responseData = [request responseData];
+    NSXMLElement *postBody = [self newXMLElementFromData:[request postBody]];
     long long rid = [self getRidFromRequest:request];    
     
     NSLog(@"BOSH: RECD[%qi] = %@", rid, [request responseString]);
@@ -634,9 +636,11 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     [requestResponsePair setResponse:parsedResponse];
     
     [boshWindowManager recievedResponseForRid:rid];
-    [self handleAttributesInResponse:parsedResponse];
-    [self trySendingStanzas];
     [self processResponses];
+    
+    [self trySendingStanzas];
+    
+    [postBody release];
 }
 
 - (void)sendHTTPRequestWithBody:(NSXMLElement *)body rid:(long long)rid
