@@ -455,15 +455,15 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 */ 
 - (void)broadcastStanzas:(NSXMLNode *)node
 {
-    NSUInteger level = [node level];
-    while( (node = [node nextNode]) )
+    node = [node childAtIndex:0];
+    if (!node) 
     {
-        if([node level] == level + 1)
-        {
-            [multicastDelegate transport:self 
-                        didReceiveStanza:[(NSXMLElement *)node copy]];
-        }
+        return;
     }
+    do 
+    {
+        [multicastDelegate transport:self didReceiveStanza:[(NSXMLElement *)node copy]];
+    }while (node = [node nextSibling]);
 }
 
 #pragma mark -
