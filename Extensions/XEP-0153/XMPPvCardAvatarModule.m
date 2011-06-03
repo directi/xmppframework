@@ -102,8 +102,15 @@ NSString *const kXMPPvCardAvatarPhotoElement = @"photo";
 
 - (void)xmppStream:(XMPPStream *)sender willSendPresence:(XMPPPresence *)presence {  
   // add our photo info to the presence stanza
+
+  // remove existing <x> element first
+  NSXMLElement *xElement = [presence elementForName:kXMPPvCardAvatarElement xmlns:kXMPPvCardAvatarNS];
+  if (xElement) {
+    [xElement detach];
+  }
+  // create a new one now
+  xElement = [NSXMLElement elementWithName:kXMPPvCardAvatarElement xmlns:kXMPPvCardAvatarNS];
   NSXMLElement *photoElement = nil;
-  NSXMLElement *xElement = [NSXMLElement elementWithName:kXMPPvCardAvatarElement xmlns:kXMPPvCardAvatarNS];
   
   NSString *photoHash = [_moduleStorage photoHashForJID:[sender myJID]];
   
