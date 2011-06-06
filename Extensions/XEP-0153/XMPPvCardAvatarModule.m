@@ -153,9 +153,11 @@ NSString *const kXMPPvCardAvatarPhotoElement = @"photo";
 	 */
 	if ([jid isEqual:[[aXmppStream myJID] bareJID]])
 	{
-		XMPPPresence *presence = aXmppStream.myPresence;
-		if (presence)
+		XMPPPresence *presence = [aXmppStream.myPresence retain];
+		if (presence) {
 			[aXmppStream sendElement:presence];
+        }
+        [presence release];
 	}
 }
 
