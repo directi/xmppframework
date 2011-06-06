@@ -28,8 +28,6 @@
 #import "XMPPPresence.h"
 #import "XMPPvCardTempModule.h"
 
-#import "ASIHTTPRequest.h"
-
 
 NSString *const kXMPPvCardAvatarElement = @"x";
 NSString *const kXMPPvCardAvatarNS = @"vcard-temp:x:update";
@@ -102,15 +100,8 @@ NSString *const kXMPPvCardAvatarPhotoElement = @"photo";
 
 - (void)xmppStream:(XMPPStream *)sender willSendPresence:(XMPPPresence *)presence {  
   // add our photo info to the presence stanza
-
-  // remove existing <x> element first
-  NSXMLElement *xElement = [presence elementForName:kXMPPvCardAvatarElement xmlns:kXMPPvCardAvatarNS];
-  if (xElement) {
-    [xElement detach];
-  }
-  // create a new one now
-  xElement = [NSXMLElement elementWithName:kXMPPvCardAvatarElement xmlns:kXMPPvCardAvatarNS];
   NSXMLElement *photoElement = nil;
+  NSXMLElement *xElement = [NSXMLElement elementWithName:kXMPPvCardAvatarElement xmlns:kXMPPvCardAvatarNS];
   
   NSString *photoHash = [_moduleStorage photoHashForJID:[sender myJID]];
   
@@ -147,31 +138,6 @@ NSString *const kXMPPvCardAvatarPhotoElement = @"photo";
 }
 
 
-#pragma mark - Private method for received my avatar
-
-- (void)didReceivePhoto:(NSData *)photo forJid:(XMPPJID *)jid {
-  [multicastDelegate xmppvCardAvatarModule:self
-                       didReceivePhotoData:photo
-                                    forJID:jid];
-  /*
-	 * XEP-0153 4.1.3
-	 * If the client subsequently obtains an avatar image (e.g., by updating or retrieving the vCard), 
-	 * it SHOULD then publish a new <presence/> stanza with character data in the <photo/> element.
-	 */
-
-  if ([jid isEqual:[self.xmppStream.myJID bareJID]]) {
-    //MyPresence is being released before it it set to the latest presence.
-    //In this case, the only presence element was being released and so, errors were encountered.
-    //Hence, presence should be retained for some time.
-    XMPPPresence *presence = [self.xmppStream.myPresence retain];
-    if (presence) {
-      [self.xmppStream sendElement:presence];
-    }
-    [presence release];
-  }
-}
-
-
 #pragma mark -
 #pragma mark XMPPvCardTempModuleDelegate
 
@@ -180,46 +146,19 @@ NSString *const kXMPPvCardAvatarPhotoElement = @"photo";
         didReceivevCardTemp:(XMPPvCardTemp *)vCardTemp 
                      forJID:(XMPPJID *)jid
                  xmppStream:(XMPPStream *)aXmppStream {
-  NSData *photo = vCardTemp.photo;
-  if (photo == nil) {
-    //Check for EXTVAL, an external URL.
-    NSXMLElement *photoElement = [vCardTemp elementForName:@"PHOTO"];
-    NSXMLElement *extval = [photoElement elementForName:@"EXTVAL"];
-    
-    if (extval) {
-      //Fetch from the URL.
-      NSURL *url = [NSURL URLWithString:[extval stringValue]];
-      
-      //Set user agent, otherwise, its getting too-many-redirection error.
-      NSMutableDictionary *headers  = [NSMutableDictionary dictionaryWithCapacity:4];
-      [headers setObject:@"Firefox" forKey:@"User-Agent"];
-      
-      ASIHTTPRequest *request = [ASIHTTPRequest requestWithURL:url];
-      [request setDelegate:self];
-      [request setRequestMethod:@"GET"];
-      [request setRequestHeaders:headers];
-      [request setNumberOfTimesToRetryOnTimeout:4];
-      [request setUserInfo:[NSDictionary dictionaryWithObject:jid forKey:@"jid"]];
-      [request setDidFinishSelector:@selector(fetchedPhoto:)];
-      [request startAsynchronous];
-    }
-  }
-
-  if (photo != nil) {
-    [self didReceivePhoto:photo forJid:jid];
-  }
+	/*
+	 * XEP-0153 4.1.3
+	 * If the client subsequently obtains an avatar image (e.g., by updating or retrieving the vCard), 
+	 * it SHOULD then publish a new <presence/> stanza with character data in the <photo/> element.
+	 */
+	if ([jid isEqual:[[aXmppStream myJID] bareJID]])
+	{
+		XMPPPresence *presence = aXmppStream.myPresence;
+		if (presence)
+			[aXmppStream sendElement:presence];
+	}
 }
 
-
-#pragma mark - Get photo from external URL
-
-- (void)fetchedPhoto:(ASIHTTPRequest *)request {
-  NSData *photo = [request responseData];
-  if ([photo length] == 0) {
-    return;
-  }
-  [self didReceivePhoto:photo forJid:[request.userInfo objectForKey:@"jid"]];
-}
 
 #pragma mark -
 #pragma mark Getter/setter methods

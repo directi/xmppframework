@@ -21,7 +21,6 @@
 
 
 @protocol XMPPvCardAvatarStorage;
-@protocol XMPPvCardAvatarDelegate;
 
 
 @interface XMPPvCardAvatarModule : XMPPModule {
@@ -47,13 +46,5 @@
 
 - (void)clearvCardTempForJID:(XMPPJID *)jid;
 
-
-@end
-
-@protocol XMPPvCardAvatarDelegate <NSObject>
-
-- (void)xmppvCardAvatarModule:(XMPPvCardAvatarModule *)vCardTempModule
-          didReceivePhotoData:(NSData *)photo
-                       forJID:(XMPPJID *)jid;
 
 @end
