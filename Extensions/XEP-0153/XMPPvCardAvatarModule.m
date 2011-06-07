@@ -46,7 +46,7 @@ NSString *const kXMPPvCardAvatarPhotoElement = @"photo";
 - (id)initWithvCardTempModule:(XMPPvCardTempModule *)xmppvCardTempModule {
 	if ((self = [super initWithStream:xmppvCardTempModule.xmppStream])) {
     _xmppvCardTempModule = [xmppvCardTempModule retain];
-    _moduleStorage = (id <XMPPvCardAvatarStorage>)xmppvCardTempModule.moduleStorage;
+    _moduleStorage = [(id <XMPPvCardAvatarStorage>)xmppvCardTempModule.moduleStorage retain];
     
     [_xmppvCardTempModule addDelegate:self];
 	}
