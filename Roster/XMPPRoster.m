@@ -224,10 +224,6 @@ enum XMPPRosterFlags
 	[response addAttributeWithName:@"type" stringValue:@"subscribed"];
 	
 	[xmppStream sendElement:response];
-	
-	// Add user to our roster
-	
-	[self addBuddy:jid withNickname:nil];
 }
 
 - (void)rejectBuddyRequest:(XMPPJID *)jid
