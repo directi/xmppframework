@@ -322,8 +322,10 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         NSLog(@"BOSH: Need to be connected to be able to send stanza");
         return NO;
     }
+    [multicastDelegate transport:self willSendStanza:stanza];
     [pendingXMPPStanzas addObject:stanza];
     [self trySendingStanzas];
+    [multicastDelegate transport:self didSendStanza:stanza];
     return YES;
 }
 

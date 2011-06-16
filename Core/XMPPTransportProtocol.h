@@ -48,6 +48,8 @@
 - (void)transportWillDisconnect:(id<XMPPTransportProtocol>)transport withError:(NSError *)err;
 - (void)transportDidDisconnect:(id <XMPPTransportProtocol>)transport;
 - (void)transport:(id <XMPPTransportProtocol>)transport willSecureWithSettings:(NSDictionary *)settings;
+- (void)transport:(id <XMPPTransportProtocol>)transport willSendStanza:(NSXMLElement *)stanza;
+- (void)transport:(id <XMPPTransportProtocol>)transport didSendStanza:(NSXMLElement *)stanza;
 - (void)transport:(id <XMPPTransportProtocol>)transport didReceiveStanza:(NSXMLElement *)stanza;
 - (void)transport:(id <XMPPTransportProtocol>)transport didReceiveError:(id)error;
 - (void)transportDidSecure:(id <XMPPTransportProtocol>)transport;

@@ -95,6 +95,14 @@
     [super dealloc];
 }
 
+- (NSXMLElement *)parseXMLString:(NSString *)xml
+{
+    NSXMLDocument *doc = [[[NSXMLDocument alloc] initWithXMLString:xml
+                                                           options:0
+                                                             error:nil] autorelease];
+    return [doc rootElement];
+}
+
 - (void)addDelegate:(id)delegate
 {
     [multicastDelegate addDelegate:delegate];
@@ -158,12 +166,15 @@
 
 - (BOOL)sendStanzaWithString:(NSString *)string
 {
-    return [self sendString:string];
+    return [self sendStanza:[self parseXMLString:string]];
 }
 
 - (BOOL)sendStanza:(NSXMLElement *)stanza
 {
-    return [self sendStanzaWithString:[stanza compactXMLString]];
+    [multicastDelegate transport:self willSendStanza:stanza];
+    BOOL sent = [self sendString:[stanza compactXMLString]];
+    [multicastDelegate transport:self didSendStanza:stanza];
+    return sent;
 }
 
 /**
