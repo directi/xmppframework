@@ -187,6 +187,8 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 @synthesize hold = hold_;
 @synthesize lang = lang_;
 @synthesize domain = domain_;
+@synthesize host = host_;
+@synthesize port = port_;
 @synthesize myJID = myJID_;
 @synthesize sid = sid_;
 @synthesize url = url_;
@@ -231,8 +233,33 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     return [self initWithUrl:url forDomain:(NSString *)domain withDelegate:nil];
 }
 
+- (id)initWithUrl:(NSURL *)url
+        forDomain:(NSString *)domain
+             host:(NSString *)host
+             port:(unsigned int)port
+{
+    return [self initWithUrl:url
+                   forDomain:domain
+                        host:host
+                        port:port
+                withDelegate:nil];
+}
+
+- (id)initWithUrl:(NSURL *)url
+        forDomain:(NSString *)domain
+     withDelegate:(id<XMPPTransportDelegate>)delegate
+{
+    return [self initWithUrl:url
+                   forDomain:domain
+                        host:nil
+                        port:0
+                withDelegate:delegate];
+}
+
 - (id)initWithUrl:(NSURL *)url 
         forDomain:(NSString *)domain
+             host:(NSString *)host
+             port:(unsigned int)port
      withDelegate:(id<XMPPTransportDelegate>)delegate
 {
     self = [super init];
@@ -255,6 +282,17 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         url_ = [url retain];
 
         domain_ = [domain copy];
+        host_ = nil;
+        port_ = 0;
+        
+        if (host != nil) {
+          host_ = [host copy];
+        }
+        
+        if (port) {
+          port_ = port;
+        }
+        
         myJID_ = nil;
         state = DISCONNECTED;
         disconnectError_ = nil;
@@ -388,6 +426,10 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     [attr setObject:@"1.0" forKey:@"xmpp:version"];
     [attr setObject:[NSString stringWithFormat:@"%u", self.inactivity] forKey:@"inactivity"];
     [attr setObject:@"iphone" forKey:@"ua"];
+    if (self.host != nil && self.port) {
+      NSString *route = [NSString stringWithFormat:@"xmpp:%@:%u", self.host, self.port];
+      [attr setObject:route forKey:@"route"];
+    }
     
     NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys: XMPP_NS, @"xmpp", nil];
     
@@ -791,6 +833,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     [multicastDelegate release];
     [url_ release];
     [domain_ release];
+    [host_ release];
     [myJID_ release];
     [authid release];
     [sid_ release];

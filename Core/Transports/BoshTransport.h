@@ -107,6 +107,8 @@ typedef enum {
 @property(assign) unsigned int hold;
 @property(copy) NSString *lang;
 @property(copy) NSString *domain;
+@property(copy) NSString *host;
+@property(assign) unsigned int port;
 @property(assign) unsigned int inactivity;
 @property(readonly) BOOL secure;
 @property(readonly) unsigned int requests;
@@ -116,8 +118,19 @@ typedef enum {
 @property(readonly) NSError *disconnectError;
 
 /* init Methods */
-- (id)initWithUrl:(NSURL *)url forDomain:(NSString *)host;
-- (id)initWithUrl:(NSURL *)url forDomain:(NSString *)host withDelegate:(id<XMPPTransportDelegate>)delegate;
+- (id)initWithUrl:(NSURL *)url forDomain:(NSString *)domain;
+- (id)initWithUrl:(NSURL *)url
+        forDomain:(NSString *)domain
+             host:(NSString *)host
+             port:(unsigned int)port;
+- (id)initWithUrl:(NSURL *)url
+        forDomain:(NSString *)domain
+     withDelegate:(id<XMPPTransportDelegate>)delegate;
+- (id)initWithUrl:(NSURL *)url
+        forDomain:(NSString *)domain
+             host:(NSString *)host
+             port:(unsigned int)port
+     withDelegate:(id<XMPPTransportDelegate>)delegate;
 
 - (void)dealloc;
 
