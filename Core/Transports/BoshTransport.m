@@ -152,6 +152,8 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 @interface BoshTransport()
 @property(readwrite, assign) NSError *disconnectError;
+@property(retain) NSMutableSet *pendingHTTPRequests;
+
 - (void)setInactivityFromString:(NSString *)givenInactivity;
 - (void)setSecureFromString:(NSString *)isSecure;
 - (void)setRequestsFromString:(NSString *)maxRequests;
@@ -198,6 +200,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 @synthesize authid;
 @synthesize requests;
 @synthesize disconnectError = disconnectError_;
+@synthesize pendingHTTPRequests = pendingHTTPRequests_;
 
 #pragma mark -
 #pragma mark Private Accessor Method Implementation
@@ -303,6 +306,8 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         requestResponsePairs = [[NSMutableDictionary alloc] initWithCapacity:3];
         retryCounter = 0;
         nextRequestDelay = INITIAL_RETRY_DELAY;
+        
+        pendingHTTPRequests_ = [[NSMutableSet alloc] initWithCapacity:2];
         
         boshWindowManager = [[BoshWindowManager alloc] initWithRid:(nextRidToSend - 1)];
         [boshWindowManager setWindowSize:1];
@@ -508,7 +513,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     do 
     {
         [multicastDelegate transport:self didReceiveStanza:[(NSXMLElement *)node copy]];
-    }while (node = [node nextSibling]);
+    }while ((node = [node nextSibling]));
 }
 
 #pragma mark -
@@ -636,6 +641,8 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     NSLog(@"BOSH: Request Failed[%qi] = %@", rid, requestString);
     NSLog(@"Failure HTTP statusCode = %d, error domain = %@, error code = %d", [request responseStatusCode],[[request error] domain], [[request error] code]);
     
+    [pendingHTTPRequests_ removeObject:request];
+    
     BOOL shouldReconnect = ([error code] == ASIRequestTimedOutErrorType || [error code] == ASIConnectionFailureErrorType) && ( retryCounter < RETRY_COUNT_LIMIT ) && 
         (state == CONNECTED);
     if(shouldReconnect) 
@@ -680,6 +687,8 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     RequestResponsePair *requestResponsePair = [requestResponsePairs objectForLongLongKey:rid];
     [requestResponsePair setResponse:parsedResponse];
     
+    [pendingHTTPRequests_ removeObject:request];
+    
     [boshWindowManager receivedResponseForRid:rid];
     [self processResponses];
     
@@ -703,6 +712,8 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     
     RequestResponsePair *pair = [[RequestResponsePair alloc] initWithRequest:body response:nil];
     [requestResponsePairs setObject:pair forLongLongKey:rid];
+    
+    [pendingHTTPRequests_ addObject:request];
     
     [request startAsynchronous];
     NSLog(@"BOSH: SEND[%qi] = %@", rid, body);
@@ -831,6 +842,14 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 - (void)dealloc
 {
+    for (ASIHTTPRequest *request in pendingHTTPRequests_) 
+    {
+        NSLog(@"Cancelling pending request with rid = %qi", [self getRidFromRequest:request]);
+        [request clearDelegatesAndCancel];
+    }
+    [pendingHTTPRequests_ removeAllObjects];
+    [pendingHTTPRequests_ release];
+    
     [multicastDelegate release];
     [url_ release];
     [domain_ release];
