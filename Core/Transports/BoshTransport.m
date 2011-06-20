@@ -111,10 +111,10 @@
     ++maxRidSent;
 }
 
-- (void)recievedResponseForRid:(long long)rid
+- (void)receivedResponseForRid:(long long)rid
 {
     NSAssert2(rid > maxRidReceived, @"Recieving response for rid = %qi where maxRidReceived = %qi", rid, maxRidReceived);
-    NSAssert3(rid <= maxRidReceived + windowSize, @"Recieved response for a request outside the rid window. responseRid = %qi, maxRidReceived = %qi, windowSize = %qi", rid, maxRidReceived, windowSize);
+    NSAssert3(rid <= maxRidReceived + windowSize, @"Received response for a request outside the rid window. responseRid = %qi, maxRidReceived = %qi, windowSize = %qi", rid, maxRidReceived, windowSize);
     [receivedRids addLongLong:rid];
     while ( [receivedRids containsLongLong:(maxRidReceived + 1)] )
     {
@@ -680,7 +680,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     RequestResponsePair *requestResponsePair = [requestResponsePairs objectForLongLongKey:rid];
     [requestResponsePair setResponse:parsedResponse];
     
-    [boshWindowManager recievedResponseForRid:rid];
+    [boshWindowManager receivedResponseForRid:rid];
     [self processResponses];
     
     [self trySendingStanzas];

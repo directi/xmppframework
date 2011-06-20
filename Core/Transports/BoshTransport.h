@@ -74,7 +74,7 @@ typedef enum {
 
 - (id)initWithRid:(long long)rid;
 - (void)sentRequestForRid:(long long)rid;
-- (void)recievedResponseForRid:(long long)rid;
+- (void)receivedResponseForRid:(long long)rid;
 - (BOOL)isWindowFull;
 - (BOOL)isWindowEmpty;
 - (void)dealloc;
