@@ -119,6 +119,7 @@
     while ( [receivedRids containsLongLong:(maxRidReceived + 1)] )
     {
         ++maxRidReceived;
+        [receivedRids removeLongLong:maxRidReceived];
     }
 }
 
@@ -378,7 +379,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     [multicastDelegate addDelegate:delegate];
 }
 
-- (void) removeDelegate:(id)delegate
+- (void)removeDelegate:(id)delegate
 {
     [multicastDelegate removeDelegate:delegate];
 }
