@@ -9,6 +9,7 @@
 #import "BoshTransport.h"
 #import "DDXML.h"
 #import "NSXMLElementAdditions.h"
+#import "DDLog.h"
 
 @interface NSMutableSet(BoshTransport)
 - (void)addLongLong:(long long)number;
@@ -325,7 +326,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 - (BOOL)connect:(NSError **)error
 {
-    NSLog(@"BOSH: Connecting to %@ with jid = %@", self.domain, [self.myJID bare]);
+    DDLogInfo(@"BOSH: Connecting to %@ with jid = %@", self.domain, [self.myJID bare]);
     
     if(![self canConnect]) return NO;
     state = CONNECTING;
@@ -337,10 +338,10 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 {
     if(![self isConnected])
     {
-        NSLog(@"BOSH: Need to be connected to restart the stream.");
+        DDLogError(@"BOSH: Need to be connected to restart the stream.");
         return ;
     }
-    NSLog(@"Bosh: Will Restart Stream");
+    DDLogVerbose(@"Bosh: Will Restart Stream");
     NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: @"true", @"xmpp:restart", nil];
     NSMutableDictionary *ns = [NSMutableDictionary dictionaryWithObjectsAndKeys:XMPP_NS, @"xmpp", nil];
     [self makeBodyAndSendHTTPRequestWithPayload:nil attributes:attr namespaces:ns];
@@ -350,10 +351,10 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 {
     if(![self isConnected])
     {
-        NSLog(@"BOSH: Need to be connected to disconnect");
+        DDLogError(@"BOSH: Need to be connected to disconnect");
         return;
     }
-    NSLog(@"Bosh: Will Terminate Session");
+    DDLogInfo(@"Bosh: Will Terminate Session");
     state = DISCONNECTING;
     [multicastDelegate transportWillDisconnect:self];
     [self trySendingStanzas];
@@ -363,7 +364,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 {
     if (![self isConnected])
     {
-        NSLog(@"BOSH: Need to be connected to be able to send stanza");
+        DDLogError(@"BOSH: Need to be connected to be able to send stanza");
         return NO;
     }
     [multicastDelegate transport:self willSendStanza:stanza];
@@ -401,17 +402,17 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 {
     if( state != DISCONNECTED )
     {
-        NSLog(@"@BOSH: Either disconnecting or still connected to the server. Disconnect First.");
+        DDLogVerbose(@"@BOSH: Either disconnecting or still connected to the server. Disconnect First.");
         return NO;
     }
     if(!self.domain)
     {
-        NSLog(@"BOSH: Called Connect with specifying the domain");
+        DDLogVerbose(@"BOSH: Called Connect with specifying the domain");
         return NO;
     }
     if(!self.myJID)
     {
-        NSLog(@"BOSH: Called connect without setting the jid");
+        DDLogVerbose(@"BOSH: Called connect without setting the jid");
         return NO;
     }
     return YES;
@@ -592,7 +593,6 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 - (void)handleDisconnection
 {
-    NSLog(@"disconnectSessionResponseHandler");
     if(self.disconnectError != nil)
     {
         [multicastDelegate transportWillDisconnect:self withError:self.disconnectError];
@@ -637,9 +637,13 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 {
     NSError *error = [request error];
     long long rid = [self getRidFromRequest:request];
+    
+#if DEBUG_WARN
     NSString *requestString = [[NSString alloc] initWithData:[request postBody] encoding:NSUTF8StringEncoding];
-    NSLog(@"BOSH: Request Failed[%qi] = %@", rid, requestString);
-    NSLog(@"Failure HTTP statusCode = %d, error domain = %@, error code = %d", [request responseStatusCode],[[request error] domain], [[request error] code]);
+    DDLogWarn(@"BOSH: Request Failed[%qi] = %@", rid, requestString);
+    DDLogWarn(@"Failure HTTP statusCode = %d, error domain = %@, error code = %d", [request responseStatusCode],[[request error] domain], [[request error] code]);
+    [requestString release];
+#endif
     
     [pendingHTTPRequests_ removeObject:request];
     
@@ -647,7 +651,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         (state == CONNECTED);
     if(shouldReconnect) 
     {
-        NSLog(@"Resending the request");
+        DDLogInfo(@"Resending the request");
         [self performSelector:@selector(resendRequest:) 
                    withObject:request 
                    afterDelay:nextRequestDelay];
@@ -656,7 +660,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     }
     else 
     {
-        NSLog(@"disconnecting due to request failure");
+        DDLogWarn(@"disconnecting due to request failure");
         [multicastDelegate transportWillDisconnect:self withError:error];
         state = DISCONNECTED;
         [self handleDisconnection];
@@ -809,7 +813,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         }
         else
         {
-            NSLog(@"BOSH: Wrong Type Passed to createArrayFrom Dictionary");
+            DDLogError(@"BOSH: Wrong Type Passed to createArrayFrom Dictionary");
         }
 		
         [array addObject:node];
@@ -843,7 +847,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 {
     for (ASIHTTPRequest *request in pendingHTTPRequests_) 
     {
-        NSLog(@"Cancelling pending request with rid = %qi", [self getRidFromRequest:request]);
+        DDLogWarn(@"Cancelling pending request with rid = %qi", [self getRidFromRequest:request]);
         [request clearDelegatesAndCancel];
     }
     [pendingHTTPRequests_ removeAllObjects];
