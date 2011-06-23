@@ -11,6 +11,24 @@
     #import "DDXML.h"
 #endif
 
+// Define the debugging state
+
+#ifndef DEBUG_SEND
+  #define DEBUG_SEND      NO
+#endif
+
+#ifndef DEBUG_RECV_PRE
+  #define DEBUG_RECV_PRE  NO  // Prints data before going to xmpp parser
+#endif
+
+#ifndef DEBUG_RECV_POST
+  #define DEBUG_RECV_POST NO   // Prints data as it comes out of xmpp parser
+#endif
+
+#define DDLogSend(format, ...)     do{ if(DEBUG_SEND)      NSLog((format), ##__VA_ARGS__); }while(0)
+#define DDLogRecvPre(format, ...)  do{ if(DEBUG_RECV_PRE)  NSLog((format), ##__VA_ARGS__); }while(0)
+#define DDLogRecvPost(format, ...) do{ if(DEBUG_RECV_POST) NSLog((format), ##__VA_ARGS__); }while(0)
+
 @class XMPPJID;
 
 @protocol XMPPTransportProtocol

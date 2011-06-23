@@ -669,11 +669,10 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
  */
 - (void)requestFinished:(ASIHTTPRequest *)request
 {
+    long long rid = [self getRidFromRequest:request];
+    DDLogRecvPre(@"BOSH: RECD[%qi] = %@", rid, [request responseString]);
     NSData *responseData = [request responseData];
     NSXMLElement *postBody = [self newXMLElementFromData:[request postBody]];
-    long long rid = [self getRidFromRequest:request];    
-    
-    NSLog(@"BOSH: RECD[%qi] = %@", rid, [request responseString]);
     
     retryCounter = 0;
     nextRequestDelay = INITIAL_RETRY_DELAY;
@@ -716,7 +715,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     [pendingHTTPRequests_ addObject:request];
     
     [request startAsynchronous];
-    NSLog(@"BOSH: SEND[%qi] = %@", rid, body);
+    DDLogSend(@"BOSH: SEND[%qi] = %@", rid, body);
     return;
 }
 

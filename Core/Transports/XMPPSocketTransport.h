@@ -19,15 +19,6 @@
 @class XMPPJID;
 @class RFSRVResolver;
 
-// Define the debugging state
-#define DEBUG_SEND      YES
-#define DEBUG_RECV_PRE  NO  // Prints data before going to xmpp parser
-#define DEBUG_RECV_POST YES   // Prints data as it comes out of xmpp parser
-
-#define DDLogSend(format, ...)     do{ if(DEBUG_SEND)      NSLog((format), ##__VA_ARGS__); }while(0)
-#define DDLogRecvPre(format, ...)  do{ if(DEBUG_RECV_PRE)  NSLog((format), ##__VA_ARGS__); }while(0)
-#define DDLogRecvPost(format, ...) do{ if(DEBUG_RECV_POST) NSLog((format), ##__VA_ARGS__); }while(0)
-
 // Define the various timeouts (in seconds) for retreiving various parts of the XML stream
 #define TIMEOUT_WRITE         10
 #define TIMEOUT_READ_START    10
