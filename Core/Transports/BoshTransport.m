@@ -71,8 +71,8 @@
 {
     if( (self = [super init]) ) 
     {
-        request_ = request;
-        response_ = response;
+        request_ = [request retain];
+        response_ = [response retain];
     }
     return self;
 }
