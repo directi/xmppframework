@@ -52,8 +52,8 @@ typedef enum {
 } BoshTransportState;
 
 @interface RequestResponsePair : NSObject
-@property(retain) NSXMLElement *request;
-@property(retain) NSXMLElement *response;
+@property (nonatomic, retain) NSXMLElement *request;
+@property (nonatomic, retain) NSXMLElement *response;
 - (id)initWithRequest:(NSXMLElement *)request response:(NSXMLElement *)response;
 - (void)dealloc;
 @end
