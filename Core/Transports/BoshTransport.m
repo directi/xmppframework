@@ -815,7 +815,10 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         }
         else
         {
-            DDLogError(@"BOSH: Wrong Type Passed to createArrayFrom Dictionary");
+            NSException *exception = [NSException exceptionWithName:@"InvalidXMLNodeType"
+                                                             reason:@"BOSH: Wrong Type Passed to createArrayFrom Dictionary"
+                                                           userInfo:nil];
+            @throw exception;
         }
 		
         [array addObject:node];
