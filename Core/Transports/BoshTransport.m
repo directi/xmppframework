@@ -712,6 +712,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     
     RequestResponsePair *pair = [[RequestResponsePair alloc] initWithRequest:body response:nil];
     [requestResponsePairs setObject:pair forLongLongKey:rid];
+    [pair release];
     
     [pendingHTTPRequests_ addObject:request];
     
