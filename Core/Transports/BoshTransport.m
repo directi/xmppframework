@@ -505,17 +505,15 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
   We should ideally put all the request in the queue and call
   processRequestQueue with a timeOut.
 */ 
-- (void)broadcastStanzas:(NSXMLNode *)node
+- (void)broadcastStanzas:(NSXMLNode *)body
 {
-    node = [node childAtIndex:0];
-    if (!node) 
-    {
-        return;
+    while ([body childCount] > 0) {
+        NSXMLNode *node = [body childAtIndex:0];
+        if ([node isKindOfClass:[NSXMLElement class]]) {
+            [node detach];
+            [multicastDelegate transport:self didReceiveStanza:(NSXMLElement *)node];
+        }
     }
-    do 
-    {
-        [multicastDelegate transport:self didReceiveStanza:[(NSXMLElement *)node copy]];
-    }while ((node = [node nextSibling]));
 }
 
 #pragma mark -
