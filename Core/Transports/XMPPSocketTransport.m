@@ -99,8 +99,10 @@
 {
     NSXMLDocument *doc = [[[NSXMLDocument alloc] initWithXMLString:xml
                                                            options:0
-                                                             error:nil] autorelease];
-    return [doc rootElement];
+                                                             error:NULL] autorelease];
+    NSXMLElement *element = [doc rootElement];
+    [element detach];
+    return element;
 }
 
 - (void)addDelegate:(id)delegate

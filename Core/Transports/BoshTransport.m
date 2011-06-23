@@ -769,7 +769,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     {
         for(NSXMLElement *child in payload)
         {
-            [body addChild:[[child copy] autorelease]];
+            [body addChild:child];
         }
     }
     
@@ -779,17 +779,21 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 - (NSXMLElement *)parseXMLString:(NSString *)xml
 {
     NSXMLDocument *doc = [[[NSXMLDocument alloc] initWithXMLString:xml
-                                                           options:0 
-                                                             error:nil] autorelease];
-    return [doc rootElement];
+                                                           options:0
+                                                             error:NULL] autorelease];
+    NSXMLElement *element = [doc rootElement];
+    [element detach];
+    return element;
 }
 
 - (NSXMLElement *)parseXMLData:(NSData *)xml
 {
     NSXMLDocument *doc = [[[NSXMLDocument alloc] initWithData:xml 
                                                       options:0 
-                                                        error:nil] autorelease];
-    return [doc rootElement];
+                                                        error:NULL] autorelease];
+    NSXMLElement *element = [doc rootElement];
+    [element detach];
+    return element;
 }
 
 - (NSArray *)newXMLNodeArrayFromDictionary:(NSDictionary *)dict 
