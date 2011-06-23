@@ -53,6 +53,7 @@
     NSNumber *nsNumber = [NSNumber numberWithLongLong:number];
     [self removeObjectForKey:nsNumber];
 }
+
 - (id)objectForLongLongKey:(long long)number
 {
     NSNumber *nsNumber = [NSNumber numberWithLongLong:number];
@@ -733,8 +734,8 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
                                  attributes:(NSMutableDictionary *)attributes 
                                  namespaces:(NSMutableDictionary *)namespaces
 {
-    attributes = attributes?attributes:[NSMutableDictionary dictionaryWithCapacity:3];
-    namespaces = namespaces?namespaces:[NSMutableDictionary dictionaryWithCapacity:1];
+    attributes = attributes ? attributes : [NSMutableDictionary dictionaryWithCapacity:3];
+    namespaces = namespaces ? namespaces : [NSMutableDictionary dictionaryWithCapacity:1];
     
     /* Adding ack and sid attribute on every outgoing request after sid is created */
     if( self.sid ) 
