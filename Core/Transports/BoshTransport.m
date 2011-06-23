@@ -676,7 +676,6 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     long long rid = [self getRidFromRequest:request];
     DDLogRecvPre(@"BOSH: RECD[%qi] = %@", rid, [request responseString]);
     NSData *responseData = [request responseData];
-    NSXMLElement *postBody = [self newXMLElementFromData:[request postBody]];
     
     retryCounter = 0;
     nextRequestDelay = INITIAL_RETRY_DELAY;
@@ -696,8 +695,6 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     [self processResponses];
     
     [self trySendingStanzas];
-    
-    [postBody release];
 }
 
 - (void)sendHTTPRequestWithBody:(NSXMLElement *)body rid:(long long)rid
