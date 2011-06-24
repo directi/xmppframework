@@ -149,7 +149,7 @@ static const NSTimeInterval DELAY_EXPONENTIATING_FACTOR = 2.0;
 static const NSTimeInterval INITIAL_RETRY_DELAY = 1.0;
 
 static const NSString *CONTENT_TYPE = @"text/xml; charset=utf-8";
-static const NSString *BODY_NS = @"http://jabber.org/protocol/httpbind";
+static NSString *BODY_NS = @"http://jabber.org/protocol/httpbind";
 static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 @interface BoshTransport()
@@ -660,6 +660,11 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     else 
     {
         DDLogWarn(@"disconnecting due to request failure");
+        if (error == nil) {
+            error = [[[NSError alloc] initWithDomain:BoshTerminateConditionDomain 
+                                                code:UNDEFINED_CONDITION 
+                                            userInfo:nil] autorelease];
+        }
         [multicastDelegate transportWillDisconnect:self withError:error];
         state = DISCONNECTED;
         [self handleDisconnection];
@@ -676,15 +681,19 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     DDLogRecvPre(@"BOSH: RECD[%qi] = %@", rid, [request responseString]);
     NSData *responseData = [request responseData];
     
-    retryCounter = 0;
-    nextRequestDelay = INITIAL_RETRY_DELAY;
-    
     NSXMLElement *parsedResponse = [self parseXMLData:responseData];
-    if ( !parsedResponse )
+    
+    if (!parsedResponse || parsedResponse.kind != DDXMLElementKind || 
+        ![parsedResponse.name isEqualToString:@"body"]  || 
+        ![[parsedResponse namespaceStringValueForPrefix:@""] isEqualToString:BODY_NS])
     {
         [self requestFailed:request];
         return;
     }
+    
+    retryCounter = 0;
+    nextRequestDelay = INITIAL_RETRY_DELAY;
+    
     RequestResponsePair *requestResponsePair = [requestResponsePairs objectForLongLongKey:rid];
     [requestResponsePair setResponse:parsedResponse];
     
