@@ -1353,7 +1353,9 @@ enum XMPPStreamFlags
 	{
 		// We've just read in the stream features
 		// We consider this part of the root element, so we'll add it (replacing any previously sent features)
-		[rootElement setChildren:[NSArray arrayWithObject:element]];
+		NSXMLElement *newElement = [element copy];
+		[rootElement setChildren:[NSArray arrayWithObject:newElement]];
+		[newElement release];
 		
 		// Call a method to handle any requirements set forth in the features
 		[self handleStreamFeatures];
