@@ -600,6 +600,11 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     }
     [pendingXMPPStanzas removeAllObjects];
     state = DISCONNECTED;
+    for (ASIHTTPRequest *request in pendingHTTPRequests_) 
+    {
+        DDLogWarn(@"Cancelling pending request with rid = %qi", [self getRidFromRequest:request]);
+        [request clearDelegatesAndCancel];
+    }
     [multicastDelegate transportDidDisconnect:self];
 }
 
@@ -858,11 +863,6 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 - (void)dealloc
 {
-    for (ASIHTTPRequest *request in pendingHTTPRequests_) 
-    {
-        DDLogWarn(@"Cancelling pending request with rid = %qi", [self getRidFromRequest:request]);
-        [request clearDelegatesAndCancel];
-    }
     [pendingHTTPRequests_ removeAllObjects];
     [pendingHTTPRequests_ release];
     
