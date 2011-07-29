@@ -144,6 +144,12 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 **/
 @property (nonatomic, readwrite, retain) id tag;
 
+/**
+ * This is a custom property.
+ * A token that may be used for custom authentication.
+**/
+@property (nonatomic, copy) NSString *token;
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark State
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -580,5 +586,10 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 **/
 - (void)xmppStream:(XMPPStream *)sender didRegisterModule:(id)module;
 - (void)xmppStream:(XMPPStream *)sender willUnregisterModule:(id)module;
+
+/**
+ * This is a custom method to pass on a token to the interested delegates.
+**/
+- (void)xmppStream:(XMPPStream *)sender receivedAuthToken:(NSString *)token;
 
 @end
