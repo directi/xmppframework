@@ -16,9 +16,6 @@
   #import <CFNetwork/CFNetwork.h>
 #endif
 
-#define supportsCustomAuthenticationSelector @selector(supportsCustomAuthentication)
-#define customAuthenticationSelector @selector(customAuthenticationWithPassword:)
-#define customHandleAuth1Selector @selector(customHandleAuth1:)
 
 NSString *const XMPPStreamErrorDomain = @"XMPPStreamErrorDomain";
 
@@ -80,7 +77,6 @@ enum XMPPStreamFlags
 @synthesize myPresence;
 @synthesize registeredModules;
 @synthesize tag = userTag;
-@synthesize token = token_;
 
 /**
  * Shared initialization between the various init methods.
@@ -93,8 +89,6 @@ enum XMPPStreamFlags
 	
 	registeredModules = [[MulticastDelegate alloc] init];
 	autoDelegateDict = [[NSMutableDictionary alloc] init];
-	
-	token_ = nil;
 }
 
 - (id)initWithTransport:(id<XMPPTransportProtocol>)givenTransport
@@ -641,15 +635,7 @@ enum XMPPStreamFlags
 		return NO;
 	}
 	
-	SEL supportsCustomAuthentication = supportsCustomAuthenticationSelector;
-	SEL customAuthentication = customAuthenticationSelector;
-	if ([self respondsToSelector:supportsCustomAuthentication] &&
-		[self performSelector:supportsCustomAuthentication]) {
-		if ([self respondsToSelector:customAuthentication]) {
-			[self performSelector:customAuthentication withObject:password];
-		}
-	}
-	else if ([self supportsDigestMD5Authentication])
+	if ([self supportsDigestMD5Authentication])
 	{
 		NSString *auth = @"<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='DIGEST-MD5'/>";
         [transport sendStanzaWithString:auth];
@@ -1056,15 +1042,7 @@ enum XMPPStreamFlags
 **/
 - (void)handleAuth1:(NSXMLElement *)response
 {
-	SEL supportsCustomAuthentication = supportsCustomAuthenticationSelector;
-	SEL customHandleAuth1 = customHandleAuth1Selector;
-	if ([self respondsToSelector:supportsCustomAuthentication] &&
-		[self performSelector:supportsCustomAuthentication]) {
-		if ([self respondsToSelector:customHandleAuth1]) {
-			[self performSelector:customHandleAuth1 withObject:response];
-		}
-	}
-	else if([self supportsDigestMD5Authentication])
+	if([self supportsDigestMD5Authentication])
 	{
 		// We're expecting a challenge response
 		// If we get anything else we can safely assume it's the equivalent of a failure response
