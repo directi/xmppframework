@@ -23,6 +23,7 @@ enum {
 	STATE_NEGOTIATING,
 	STATE_STARTTLS,
 	STATE_REGISTERING,
+	STATE_CUSTOM_AUTH,
 	STATE_AUTH_1,
 	STATE_AUTH_2,
 	STATE_AUTH_3,
@@ -65,6 +66,8 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 	NSMutableDictionary *autoDelegateDict;
 	
 	id userTag;
+	
+	id customAuthTarget;
 }
 
 - (id)initWithTransport:(id<XMPPTransportProtocol>)transport;
@@ -143,6 +146,12 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
  * Tag values are not used internally, and should not be used by xmpp modules.
 **/
 @property (nonatomic, readwrite, retain) id tag;
+
+/**
+ * The target object for custom authentication methods.
+ * The selector to be performed on this target is "customAuthSelector"
+**/
+@property (nonatomic, retain) id customAuthTarget;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark State
@@ -291,6 +300,16 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 - (BOOL)authenticateAnonymously:(NSError **)errPtr;
 
 - (void)handleAuth1:(NSXMLElement *)response;
+
+/**
+ * Custom Authentication.
+ *
+ * To override the priorities of authentication mechanisms,
+ * and to specify custom mechanisms as well.
+**/
+- (BOOL)startCustomAuthenticationWithPassword:(NSString *)password error:(NSError **)errPtr;
+- (void)didFinishCustomAuthentication;
+- (void)didFailCustomAuthentication:(NSXMLElement *)response;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark Server Info

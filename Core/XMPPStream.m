@@ -78,6 +78,8 @@ enum XMPPStreamFlags
 @synthesize registeredModules;
 @synthesize tag = userTag;
 
+@synthesize customAuthTarget;
+
 /**
  * Shared initialization between the various init methods.
 **/
@@ -770,6 +772,31 @@ enum XMPPStreamFlags
 		flags &= ~kIsAuthenticated;
 }
 
+/**
+ * Custom Authentication.
+**/
+- (BOOL)startCustomAuthenticationWithPassword:(NSString *)password error:(NSError **)errPtr
+{
+	if (state != STATE_CONNECTED)
+	{
+		if (errPtr)
+		{
+			NSString *errMsg = @"Please wait until the stream is connected.";
+			NSDictionary *info = [NSDictionary dictionaryWithObject:errMsg forKey:NSLocalizedDescriptionKey];
+			
+			*errPtr = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
+		}
+		return NO;
+	}
+	
+	if (customAuthTarget == nil) {
+		return [self authenticateWithPassword:password error:errPtr];
+	}
+	
+	state = STATE_CUSTOM_AUTH;
+	return [[customAuthTarget performSelector:@selector(customAuthWithPassword:rootElement:) withObject:password withObject:rootElement] boolValue];
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark General Methods
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1288,6 +1315,25 @@ enum XMPPStreamFlags
 	}
 }
 
+/**
+ * Handling of custom authentication responses.
+**/
+- (void)didFinishCustomAuthentication {
+	// We are successfully authenticated
+	[self setIsAuthenticated:YES];
+	state = STATE_NEGOTIATING;
+	
+	// Now we start our negotiation over again...
+	[self restartStream];
+}
+
+- (void)didFailCustomAuthentication:(NSXMLElement *)response {
+	// Revert back to connected state (from authenticating state)
+	state = STATE_CONNECTED;
+	
+	[multicastDelegate xmppStream:self didNotAuthenticate:response];
+}
+
 //////////////////////////////////////
 #pragma mark XMPPTransport Delegate
 //////////////////////////////////////
@@ -1369,6 +1415,11 @@ enum XMPPStreamFlags
 	{
 		// The iq response from our registration request
 		[self handleRegistration:element];
+	}
+	else if (state == STATE_CUSTOM_AUTH)
+	{
+		//The customAuthTarget must respond to this selector.
+		[customAuthTarget performSelector:@selector(handleCustomAuth:) withObject:element];
 	}
 	else if(state == STATE_AUTH_1)
 	{
