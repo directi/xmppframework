@@ -900,7 +900,7 @@ enum XMPPStreamFlags
 **/
 - (void)sendElement:(NSXMLElement *)element
 {
-	if (state == STATE_CONNECTED)
+	if (state == STATE_CONNECTED || state == STATE_CUSTOM_AUTH)
 	{
 		[self sendElement:element withTag:0];
 	}
