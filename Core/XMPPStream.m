@@ -79,6 +79,8 @@ enum XMPPStreamFlags
 @synthesize tag = userTag;
 
 @synthesize customAuthTarget;
+@synthesize customAuthSelector;
+@synthesize customHandleAuthSelector;
 
 /**
  * Shared initialization between the various init methods.
@@ -775,26 +777,20 @@ enum XMPPStreamFlags
 /**
  * Custom Authentication.
 **/
-- (BOOL)startCustomAuthenticationWithPassword:(NSString *)password error:(NSError **)errPtr
+- (BOOL)startCustomAuthenticationWithTarget:(id)target authSelector:(SEL)authSelector handleAuthSelector:(SEL)handleAuthSelector
 {
 	if (state != STATE_CONNECTED)
 	{
-		if (errPtr)
-		{
-			NSString *errMsg = @"Please wait until the stream is connected.";
-			NSDictionary *info = [NSDictionary dictionaryWithObject:errMsg forKey:NSLocalizedDescriptionKey];
-			
-			*errPtr = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
-		}
 		return NO;
 	}
 	
-	if (customAuthTarget == nil) {
-		return [self authenticateWithPassword:password error:errPtr];
-	}
-	
 	state = STATE_CUSTOM_AUTH;
-	return [[customAuthTarget performSelector:@selector(customAuthWithPassword:rootElement:) withObject:password withObject:rootElement] boolValue];
+	customAuthTarget = [target retain];
+	customAuthSelector = authSelector;
+	customHandleAuthSelector = handleAuthSelector;
+	
+	[target performSelector:authSelector];
+	return YES;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1325,6 +1321,7 @@ enum XMPPStreamFlags
 	
 	// Now we start our negotiation over again...
 	[self restartStream];
+	[customAuthTarget release];
 }
 
 - (void)didFailCustomAuthentication:(NSXMLElement *)response {
@@ -1332,6 +1329,7 @@ enum XMPPStreamFlags
 	state = STATE_CONNECTED;
 	
 	[multicastDelegate xmppStream:self didNotAuthenticate:response];
+	[customAuthTarget release];
 }
 
 //////////////////////////////////////
@@ -1419,7 +1417,7 @@ enum XMPPStreamFlags
 	else if (state == STATE_CUSTOM_AUTH)
 	{
 		//The customAuthTarget must respond to this selector.
-		[customAuthTarget performSelector:@selector(handleCustomAuth:) withObject:element];
+		[customAuthTarget performSelector:customHandleAuthSelector withObject:element];
 	}
 	else if(state == STATE_AUTH_1)
 	{

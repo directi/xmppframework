@@ -68,6 +68,8 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 	id userTag;
 	
 	id customAuthTarget;
+	SEL customAuthSelector;
+	SEL customHandleAuthSelector;
 }
 
 - (id)initWithTransport:(id<XMPPTransportProtocol>)transport;
@@ -149,9 +151,12 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 
 /**
  * The target object for custom authentication methods.
- * The selector to be performed on this target is "customAuthSelector"
+ * The auth selector to be performed on this target.
+ * The selector for the response of authentication.
 **/
 @property (nonatomic, retain) id customAuthTarget;
+@property (nonatomic) SEL customAuthSelector;
+@property (nonatomic) SEL customHandleAuthSelector;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark State
@@ -307,7 +312,7 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
  * To override the priorities of authentication mechanisms,
  * and to specify custom mechanisms as well.
 **/
-- (BOOL)startCustomAuthenticationWithPassword:(NSString *)password error:(NSError **)errPtr;
+- (BOOL)startCustomAuthenticationWithTarget:(id)target authSelector:(SEL)authSelector handleAuthSelector:(SEL)handleAuthSelector;
 - (void)didFinishCustomAuthentication;
 - (void)didFailCustomAuthentication:(NSXMLElement *)response;
 
