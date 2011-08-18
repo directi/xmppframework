@@ -1302,6 +1302,10 @@ enum XMPPStreamFlags
 		
 		[multicastDelegate xmppStreamDidAuthenticate:self];
 	}
+  
+  //Commenting out this code since pappu doesn't honour rfc right now
+  //should be changed once pappu starts doing the correct thing.
+  /*
 	else
 	{
 		// Revert back to connected state (from start session state)
@@ -1309,6 +1313,7 @@ enum XMPPStreamFlags
 		
 		[multicastDelegate xmppStream:self didNotAuthenticate:response];
 	}
+   */
 }
 
 /**
