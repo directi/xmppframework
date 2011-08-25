@@ -107,6 +107,7 @@ typedef enum {
 @property(assign) unsigned int hold;
 @property(copy) NSString *lang;
 @property(copy) NSString *domain;
+@property(copy) NSString *routeProtocol;
 @property(copy) NSString *host;
 @property(assign) unsigned int port;
 @property(assign) unsigned int inactivity;
@@ -121,6 +122,7 @@ typedef enum {
 - (id)initWithUrl:(NSURL *)url forDomain:(NSString *)domain;
 - (id)initWithUrl:(NSURL *)url
         forDomain:(NSString *)domain
+    routeProtocol:(NSString *)routeProtocol
              host:(NSString *)host
              port:(unsigned int)port;
 - (id)initWithUrl:(NSURL *)url
@@ -128,6 +130,7 @@ typedef enum {
      withDelegate:(id<XMPPTransportDelegate>)delegate;
 - (id)initWithUrl:(NSURL *)url
         forDomain:(NSString *)domain
+    routeProtocol:(NSString *)routeProtocol
              host:(NSString *)host
              port:(unsigned int)port
      withDelegate:(id<XMPPTransportDelegate>)delegate;
