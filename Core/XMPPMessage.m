@@ -149,6 +149,11 @@
 		[received addAttributeWithName:@"id" stringValue:msgid];
 	}
 	
+	NSString *sid = [[self attributeForName:@"sid"] stringValue];
+	if (sid) {
+		[received addAttributeWithName:@"sid" stringValue:sid];
+	}
+
 	[message addChild:received];
 	
 	return [[self class] messageFromElement:message];
