@@ -50,7 +50,6 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 	MulticastDelegate <XMPPStreamDelegate> *multicastDelegate;
 	
 	int state;
-    id<XMPPTransportProtocol> transport;
 	
 	Byte flags;
 	
@@ -74,6 +73,9 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 
 - (id)initWithTransport:(id<XMPPTransportProtocol>)transport;
 - (id)initWithP2PTransport:(id<XMPPTransportProtocol>)transport;
+
+@property (readonly) id<XMPPTransportProtocol> transport;
+
 
 /**
  * XMPPStream uses a multicast delegate.

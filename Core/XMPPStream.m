@@ -82,6 +82,8 @@ enum XMPPStreamFlags
 @synthesize customAuthSelector;
 @synthesize customHandleAuthSelector;
 
+@synthesize transport = transport;
+
 /**
  * Shared initialization between the various init methods.
 **/
@@ -100,6 +102,7 @@ enum XMPPStreamFlags
     if ((self = [super init]))
     {
         [self commonInit];
+        [givenTransport retain];
         transport = givenTransport;
         [transport addDelegate:self];
     }
@@ -144,6 +147,7 @@ enum XMPPStreamFlags
 	[autoDelegateDict release];
 	
     [userTag release];
+    [transport release];
 	
 	[super dealloc];
 }

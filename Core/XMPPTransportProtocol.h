@@ -31,7 +31,7 @@
 
 @class XMPPJID;
 
-@protocol XMPPTransportProtocol
+@protocol XMPPTransportProtocol<NSObject>
 
 - (void)addDelegate:(id)delegate;
 - (void)removeDelegate:(id)delegate;
@@ -52,6 +52,8 @@
 - (XMPPJID *)remoteJID;
 - (void)setRemoteJID:(XMPPJID *)jid;
 - (BOOL)isP2PRecipient;
+
+@property(copy) NSString *sid;
 
 @end
 
