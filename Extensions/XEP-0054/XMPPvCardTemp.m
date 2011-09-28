@@ -67,6 +67,7 @@ NSString *const kXMPPvCardTempElement = @"vCard";
 + (XMPPIQ *)iqvCardRequestForJID:(XMPPJID *)jid {
   XMPPIQ *iq = [XMPPIQ iqWithType:@"get" to:[jid bareJID]];
   NSXMLElement *vCardElem = [NSXMLElement elementWithName:kXMPPvCardTempElement xmlns:kXMPPNSvCardTemp];
+  [vCardElem addAttributeWithName:@"x-only-base64encodedimage-required" stringValue:@"true"];
   
   [iq addChild:vCardElem];
   return iq;

@@ -11,8 +11,6 @@
 #include <dns_util.h>
 #include <stdlib.h>
 
-#import "XMPPStream.h"
-
 
 NSString * kRFSRVResolverErrorDomain = @"kRFSRVResolverErrorDomain";
 
@@ -96,7 +94,7 @@ NSString * kRFSRVResolverErrorDomain = @"kRFSRVResolverErrorDomain";
 @interface RFSRVResolver()
 
 // Redeclare some external properties as read/write
-@property (nonatomic, retain, readwrite) XMPPStream *				xmppStream;
+@property (nonatomic, retain, readwrite) id<XMPPTransportProtocol>	transport;
 
 @property (nonatomic, assign, readwrite, getter=isFinished) BOOL    finished;
 @property (nonatomic, retain, readwrite) NSError *                  error;
@@ -119,7 +117,7 @@ NSString * kRFSRVResolverErrorDomain = @"kRFSRVResolverErrorDomain";
 
 @implementation RFSRVResolver
 
-@synthesize xmppStream      = _xmppStream;
+@synthesize transport       = _transport;
 @synthesize delegate        = _delegate;
 
 @synthesize finished        = _finished;
@@ -129,19 +127,19 @@ NSString * kRFSRVResolverErrorDomain = @"kRFSRVResolverErrorDomain";
 
 #pragma mark Init methods
 
-+ (RFSRVResolver *)resolveWithStream:(XMPPStream *)aXmppStream 
-							delegate:(id)delegate
++ (RFSRVResolver *)resolveWithTransport:(id<XMPPTransportProtocol>)transport 
+                               delegate:(id)delegate
 {
-	RFSRVResolver *srvResolver = [[[RFSRVResolver alloc] initWithStream:aXmppStream] autorelease];
+	RFSRVResolver *srvResolver = [[[RFSRVResolver alloc] initWithTransport:transport] autorelease];
 	srvResolver.delegate = delegate;
 	[srvResolver start];
 	return srvResolver;
 }
 
-- (id)initWithStream:(XMPPStream *)xmppStream
+- (id)initWithTransport:(id<XMPPTransportProtocol>)transport
 {
 	if ((self = [super init])) {
-		self.xmppStream = xmppStream;
+		self.transport = transport;
 		self.results = [NSMutableArray arrayWithCapacity:1];
   }
   return self;
@@ -149,10 +147,9 @@ NSString * kRFSRVResolverErrorDomain = @"kRFSRVResolverErrorDomain";
 
 - (void)dealloc
 {
-  [self _closeSockets];
-  [_error release];
-  [_results release];
-	[_xmppStream release];
+    [self _closeSockets];
+    [_error release];
+    [_results release];
     
   [_timeoutTimer invalidate];
   [_timeoutTimer release];
@@ -401,21 +398,20 @@ static void SDRefSocketCallback(
 
 - (void)_start
 {
-  DNSServiceErrorType err;
-  const char *        srvNameCStr;
-  int                 fd;
-  CFSocketContext     context = { 0, self, NULL, NULL, NULL };
-  CFRunLoopSourceRef  rls;
-  
-  NSAssert(self->_sdRef == NULL, @"_sdRef is not NULL");
-  
-  // Create the DNSServiceRef to run our query.
-  
-  err = kDNSServiceErr_NoError;
-
-
-	NSString *srvName = [NSString stringWithFormat:@"_xmpp-client._tcp.%@", [[self.xmppStream myJID] domain]];
+    DNSServiceErrorType err;
+    const char *        srvNameCStr;
+    int                 fd;
+    CFSocketContext     context = { 0, self, NULL, NULL, NULL };
+    CFRunLoopSourceRef  rls;
+    
+    NSAssert(self->_sdRef == NULL, @"_sdRef is not NULL");
+    
+    // Create the DNSServiceRef to run our query.
+    
+    err = kDNSServiceErr_NoError;
 	
+	
+	NSString *srvName = [NSString stringWithFormat:@"_xmpp-client._tcp.%@", [[self.transport myJID] domain]];
 	DDLogVerbose(@"%s Looking up %@...",__PRETTY_FUNCTION__,srvName);	
     
     srvNameCStr = [srvName cStringUsingEncoding:NSASCIIStringEncoding];
