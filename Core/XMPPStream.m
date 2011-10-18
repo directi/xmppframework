@@ -82,6 +82,18 @@ enum XMPPStreamFlags
 @synthesize customAuthSelector;
 @synthesize customHandleAuthSelector;
 
+@dynamic transport;
+
+- (void)setTransport:(id<XMPPTransportProtocol>)givenTransport
+{
+  transport = givenTransport;
+  [transport addDelegate:self];
+}
+
+- (id)transport
+{
+  return transport;
+}
 /**
  * Shared initialization between the various init methods.
 **/
@@ -100,8 +112,7 @@ enum XMPPStreamFlags
     if ((self = [super init]))
     {
         [self commonInit];
-        transport = givenTransport;
-        [transport addDelegate:self];
+        [self setTransport:givenTransport];
     }
     return self;
 }
@@ -144,8 +155,70 @@ enum XMPPStreamFlags
 	[autoDelegateDict release];
 	
     [userTag release];
-	
+  
 	[super dealloc];
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#pragma mark NSCoding Protocol methods
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define kXSState @"int state"
+
+#define kXSFlags @"Byte flags"
+
+#define kXSTempPassword @"NSString *tempPassword"
+
+#define kXSMyJID @"XMPPJID *myJID"
+#define kXSRemoteJID @"XMPPJID *remoteJID"
+
+#define kXSMYPresence @"XMPPPresence *myPresence"
+#define kXSRootelement @"NSXMLElement *rootElement"
+
+//#define @"id userTag" not being used ryt now in the code, therefore not using
+//
+//#define @"id customAuthTarget"
+//#define @"SEL customAuthSelector"
+//#define @"SEL customHandleAuthSelector"
+
+- (void)encodeWithCoder: (NSCoder *)coder
+{
+  [coder encodeInt:state forKey:kXSState];
+  [coder encodeInt:flags forKey:kXSFlags];
+  [coder encodeObject:tempPassword forKey:kXSTempPassword];
+  [coder encodeObject:myJID forKey:kXSMyJID];
+  [coder encodeObject:remoteJID forKey:kXSRemoteJID];
+  
+  [coder encodeObject:myPresence  forKey:kXSMYPresence];
+  [coder encodeObject:rootElement forKey:kXSRootelement];
+}
+
+- (void)commonInitWithCoder:(NSCoder *)coder
+{
+  state = [coder decodeIntForKey:kXSState];
+  flags = (Byte) [coder decodeIntForKey:kXSFlags];
+  
+  tempPassword    = [[coder decodeObjectForKey:kXSTempPassword] copy];
+  myJID      = [[coder decodeObjectForKey:kXSMyJID] copy];
+  remoteJID  = [[coder decodeObjectForKey:kXSRemoteJID] copy] ;
+  
+  myPresence  = [[coder decodeObjectForKey:kXSMYPresence]  retain];
+  rootElement = [[coder decodeObjectForKey:kXSRootelement] retain];
+  
+  multicastDelegate = [[MulticastDelegate alloc] init];
+	registeredModules = [[MulticastDelegate alloc] init];
+	autoDelegateDict  = [[NSMutableDictionary alloc] init];
+  
+}
+
+- (id)initWithCoder: (NSCoder *)coder
+{
+  self = [self init];
+  if (self && coder)
+  {
+    [self commonInitWithCoder:coder];
+  }
+  return self;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

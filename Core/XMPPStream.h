@@ -45,7 +45,7 @@ enum XMPPStreamErrorCode
 typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 
 
-@interface XMPPStream : NSObject <XMPPTransportDelegate>
+@interface XMPPStream : NSObject <XMPPTransportDelegate,NSCoding>
 {
 	MulticastDelegate <XMPPStreamDelegate> *multicastDelegate;
 	
@@ -157,6 +157,8 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 @property (nonatomic, retain) id customAuthTarget;
 @property (nonatomic) SEL customAuthSelector;
 @property (nonatomic) SEL customHandleAuthSelector;
+
+@property (nonatomic, assign) id<XMPPTransportProtocol> transport;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark State
