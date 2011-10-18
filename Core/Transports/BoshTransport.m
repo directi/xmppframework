@@ -205,6 +205,8 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 @synthesize disconnectError = disconnectError_;
 @synthesize pendingHTTPRequests = pendingHTTPRequests_;
 
+#define BoshVersion @"1.6"
+
 #pragma mark -
 #pragma mark Private Accessor Method Implementation
 
@@ -276,8 +278,8 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     self = [super init];
     if(self)
     {		
-        boshVersion = @"1.6";
-        lang_ = @"en";
+        boshVersion = BoshVersion;
+        lang_ = [@"en" retain];
         wait_ = 60.0;
         hold_ = 1;
 
@@ -869,6 +871,8 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 - (void)dealloc
 {
+    [lang_ release];
+  
     [pendingHTTPRequests_ removeAllObjects];
     [pendingHTTPRequests_ release];
     
