@@ -156,4 +156,5 @@ typedef enum {
 - (float)serverXmppStreamVersionNumber;
 - (BOOL)sendStanza:(NSXMLElement *)stanza;
 - (BOOL)sendStanzaWithString:(NSString *)string;
+- (void)resendRemainingRequests;
 @end

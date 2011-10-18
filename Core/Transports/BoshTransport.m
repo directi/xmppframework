@@ -1056,4 +1056,22 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
   return self;
 }
 
+/*
+ * This method to be called after the uncompression of the transport object.
+ * It looks for packets in requestResponsePairs without a response and sends them.
+ */
+- (void)resendRemainingRequests
+{
+  for ( NSNumber *ridNumber in [requestResponsePairs allKeys ])
+  { 
+    long long rid = [ridNumber longLongValue];
+    RequestResponsePair *pair = [requestResponsePairs objectForLongLongKey:rid];
+    if ( !pair.response )
+    {
+      [self sendHTTPRequestWithBody:pair.request rid:rid];
+    }
+  }
+}
+
+
 @end
