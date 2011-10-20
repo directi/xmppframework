@@ -176,6 +176,8 @@ enum XMPPStreamFlags
 #define kMYPresence		@"myPresence"
 #define	kRootelement	@"rootElement"
 
+#define kTransport		@"transport"
+
 //#define @"id userTag" not being used ryt now in the code, therefore not using
 //
 //#define @"id customAuthTarget"
@@ -192,6 +194,7 @@ enum XMPPStreamFlags
 	
 	[coder encodeObject:myPresence  forKey:kMYPresence];
 	[coder encodeObject:rootElement forKey:kRootelement];
+	[coder encodeObject:transport	forKey:kTransport];
 }
 
 - (void)commonInitWithCoder:(NSCoder *)coder
@@ -206,10 +209,11 @@ enum XMPPStreamFlags
 	myPresence  = [[coder decodeObjectForKey:kMYPresence]  retain];
 	rootElement = [[coder decodeObjectForKey:kRootelement] retain];
 	
+	transport	= [[coder decodeObjectForKey:kTransport] retain];
+
 	multicastDelegate = [[MulticastDelegate alloc] init];
 	registeredModules = [[MulticastDelegate alloc] init];
 	autoDelegateDict  = [[NSMutableDictionary alloc] init];
-	
 }
 
 - (id)initWithCoder: (NSCoder *)coder
