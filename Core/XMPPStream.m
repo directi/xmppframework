@@ -218,7 +218,7 @@ enum XMPPStreamFlags
 
 - (id)initWithCoder: (NSCoder *)coder
 {
-	self = [self init];
+	self = [super init];
 	if (self && coder)
 	{
 		[self commonInitWithCoder:coder];

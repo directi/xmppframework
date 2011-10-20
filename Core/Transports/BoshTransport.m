@@ -96,7 +96,7 @@
 
 - (id)initWithCoder: (NSCoder *)coder
 {
-	self = [self init];
+	self = [super init];
 	if (self && coder)
 	{
 		self.request  = [coder decodeObjectForKey:kPairRequest ];
@@ -187,7 +187,7 @@
 
 - (id)initWithCoder: (NSCoder *)coder
 {
-	self = [self init];
+	self = [super init];
 	if (self && coder)
 	{
 		[self commonInitWithCoder:coder];
@@ -1048,7 +1048,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 - (id)initWithCoder: (NSCoder *)coder
 {
-	self = [self init];
+	self = [super init];
 	if (self && coder)
 	{
 		[self commonInitWithCoder:coder];
