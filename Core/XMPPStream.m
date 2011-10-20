@@ -86,7 +86,7 @@ enum XMPPStreamFlags
 
 - (void)setTransport:(id<XMPPTransportProtocol>)givenTransport
 {
-	transport = givenTransport;
+	transport = [givenTransport retain];
 	[transport addDelegate:self];
 }
 
@@ -141,6 +141,7 @@ enum XMPPStreamFlags
 **/
 - (void)dealloc
 {
+	[transport release];
 	[multicastDelegate release];
 	
 	[tempPassword release];

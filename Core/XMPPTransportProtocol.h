@@ -31,7 +31,7 @@
 
 @class XMPPJID;
 
-@protocol XMPPTransportProtocol
+@protocol XMPPTransportProtocol <NSObject>
 
 - (void)addDelegate:(id)delegate;
 - (void)removeDelegate:(id)delegate;

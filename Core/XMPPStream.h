@@ -158,7 +158,7 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 @property (nonatomic) SEL customAuthSelector;
 @property (nonatomic) SEL customHandleAuthSelector;
 
-@property (nonatomic, assign) id<XMPPTransportProtocol> transport;
+@property (nonatomic, retain) id<XMPPTransportProtocol> transport;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark State
