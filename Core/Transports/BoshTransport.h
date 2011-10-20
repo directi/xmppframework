@@ -83,7 +83,7 @@ typedef enum {
 
 #pragma mark -
 
-@interface BoshTransport : NSObject <XMPPTransportProtocol,NSCoding> {
+@interface BoshTransport : NSObject <XMPPTransportProtocol, NSCoding> {
     NSString *boshVersion;
 
     long long nextRidToSend;

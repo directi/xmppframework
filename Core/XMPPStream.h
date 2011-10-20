@@ -45,7 +45,7 @@ enum XMPPStreamErrorCode
 typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 
 
-@interface XMPPStream : NSObject <XMPPTransportDelegate,NSCoding>
+@interface XMPPStream : NSObject <XMPPTransportDelegate, NSCoding>
 {
 	MulticastDelegate <XMPPStreamDelegate> *multicastDelegate;
 	

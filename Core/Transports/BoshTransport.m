@@ -85,25 +85,25 @@
     [super dealloc];
 }
 
-#define kRRPairRequest @"@property (nonatomic, retain) NSXMLElement *request"
-#define kRRPairResponse @"@property (nonatomic, retain) NSXMLElement *response"
+#define kPairRequest	@"request"
+#define kPairResponse	@"response"
 
 - (void)encodeWithCoder: (NSCoder *)coder
 {
-  [coder encodeObject:self.request forKey:kRRPairRequest];
-  [coder encodeObject:self.response forKey:kRRPairResponse];
+	[coder encodeObject:self.request	forKey:kPairRequest];
+	[coder encodeObject:self.response forKey:kPairResponse];
 }
 
 - (id)initWithCoder: (NSCoder *)coder
 {
-  self = [self init];
-  if (self && coder)
-  {
-    self.request  = [coder decodeObjectForKey:kRRPairRequest ];
-    self.response = [coder decodeObjectForKey:kRRPairResponse];
-  }
-  
-  return self;
+	self = [self init];
+	if (self && coder)
+	{
+		self.request  = [coder decodeObjectForKey:kPairRequest ];
+		self.response = [coder decodeObjectForKey:kPairResponse];
+	}
+	
+	return self;
 }
 
 
@@ -164,36 +164,36 @@
     [super dealloc];
 }
 
-#define kWMMaxRidReceived @"long long maxRidReceived"
-#define kWMMaxRidSent @"long long maxRidSent"
-#define kWMReceivedRids  @"NSMutableSet *receivedRids"
-#define kWMWindowSize @"@property unsigned int windowSize"
+#define kMaxRidReceived	@"maxRidReceived"
+#define kMaxRidSent		@"maxRidSent"
+#define kReceivedRids	@"receivedRids"
+#define kWindowSize		@"windowSize"
 
 - (void)encodeWithCoder: (NSCoder *)coder
 {
-  [coder encodeInt64:maxRidReceived forKey:kWMMaxRidReceived];
-  [coder encodeInt64:maxRidSent forKey:kWMMaxRidSent];
-  [coder encodeObject:receivedRids forKey:kWMReceivedRids];
-  [coder encodeInt:self.windowSize forKey:kWMWindowSize];
+	[coder encodeInt64:maxRidReceived forKey:kMaxRidReceived];
+	[coder encodeInt64:maxRidSent forKey:kMaxRidSent];
+	[coder encodeObject:receivedRids forKey:kReceivedRids];
+	[coder encodeInt:self.windowSize forKey:kWindowSize];
 }
 
 - (void)commonInitWithCoder:(NSCoder *)coder
 {
-  maxRidSent = [coder decodeInt64ForKey:kWMMaxRidSent];
-  maxRidReceived  = [coder decodeInt64ForKey:kWMMaxRidReceived];
-  receivedRids = [[coder decodeObjectForKey:kWMReceivedRids] retain];
-  self.windowSize = [coder decodeIntForKey:kWMWindowSize];
+	maxRidSent		= [coder decodeInt64ForKey:kMaxRidSent];
+	maxRidReceived  = [coder decodeInt64ForKey:kMaxRidReceived];
+	receivedRids	= [[coder decodeObjectForKey:kReceivedRids] retain];
+	self.windowSize = [coder decodeIntForKey:kWindowSize];
 }
 
 - (id)initWithCoder: (NSCoder *)coder
 {
-  self = [self init];
-  if (self && coder)
-  {
-    [self commonInitWithCoder:coder];
-  }
-  
-  return self;
+	self = [self init];
+	if (self && coder)
+	{
+		[self commonInitWithCoder:coder];
+	}
+	
+	return self;
 }
 
 
@@ -336,7 +336,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     if(self)
     {		
         boshVersion = BoshVersion;
-        lang_ = [@"en" retain];
+        lang_ = @"en";
         wait_ = 60.0;
         hold_ = 1;
 
@@ -946,114 +946,114 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 #pragma mark Protocol NSCoding Method Implementation
 
-#define kNextRidToSend @"long long nextRidToSend"
-#define kMaxRidProcessed @"long long maxRidProcessed"
+#define kNextRidToSend		@"nextRidToSend"
+#define kMaxRidProcessed	@"maxRidProcessed"
 
-#define kPendingXMPPStanza @"NSMutableArray *pendingXMPPStanzas"
-#define kBoshWindowManager @"BoshWindowManager *boshWindowManager"
-#define kState @"BoshTransportState state"
+#define kPendingXMPPStanza	@"pendingXMPPStanzas"
+#define kBoshWindowManager	@"boshWindowManager"
+#define kState				@"state"
 
-#define kRequestResponsePairs @"NSMutableDictionary *requestResponsePairs"
+#define kRequestResponsePairs @"requestResponsePairs"
 
-#define kDisconnectError_ @"NSError *disconnectError_;"
-//
-#define kRetryCounter @"int retryCounter;"
-#define kNextRequestDelay @"NSTimeInterval nextRequestDelay;"
-//
-#define kMyJID @"@property(retain) XMPPJID *myJID;"
-#define kWait @"@property(assign) unsigned int wait;"
-#define kHold @"@property(assign) unsigned int hold;"
-#define kLang @"@property(copy) NSString *lang;"
-#define kDomain @"@property(copy) NSString *domain;"
-#define kRouteProtocol @"@property(copy) NSString *routeProtocol;"
-#define kHost @"@property(copy) NSString *host;"
-#define kPort @"@property(assign) unsigned int port;"
-#define kInactivity @"@property(assign) unsigned int inactivity"
-#define kSecure @"@property(readonly)_BOOL_secure"
-#define kRequest @"@property(readonly) unsigned int requests"
-#define kAuthId @"@property(copy) NSString *authid"
-#define kSid @"@property(copy) NSString *sid"
-#define kUrl @"@property(copy) NSURL *url"
+#define kDisconnectError_	@"disconnectError_"
+
+#define kRetryCounter		@"retryCounter"
+#define kNextRequestDelay	@"nextRequestDelay"
+
+#define kMyJID			@"myJID"
+#define kWait			@"wait"
+#define kHold			@"hold"
+#define kLang			@"lang"
+#define kDomain			@"domain"
+#define kRouteProtocol	@"routeProtocol"
+#define kHost			@"host"
+#define kPort			@"port"
+#define kInactivity		@"inactivity"
+#define kSecure			@"secure"
+#define kRequest		@"requests"
+#define kAuthId			@"authid"
+#define kSid			@"sid"
+#define kUrl			@"url"
 
 
 - (void)encodeWithCoder: (NSCoder *)coder
 {
-  [coder encodeInt64:nextRidToSend forKey:kNextRidToSend];
-  [coder encodeInt64:maxRidProcessed forKey:kMaxRidProcessed];
-  
-  [coder encodeObject:pendingXMPPStanzas forKey:kPendingXMPPStanza];
-  [coder encodeObject:boshWindowManager forKey:kBoshWindowManager] ;
-  [coder encodeInt:state forKey:kState];
-  
-  [coder encodeObject:requestResponsePairs forKey:kRequestResponsePairs];
-  
-  [coder encodeObject:disconnectError_ forKey:kDisconnectError_];
-  
-  [coder encodeInt:retryCounter  forKey:kRetryCounter];
-  [coder encodeDouble:nextRequestDelay forKey:kNextRequestDelay];
-  
-  [coder encodeObject:self.myJID forKey:kMyJID];
-  [coder encodeInt:self.wait forKey:kWait];
-  [coder encodeInt:self.hold forKey:kHold];
-  [coder encodeObject:self.lang forKey:kLang];
-  [coder encodeObject:self.domain forKey:kDomain];
-  [coder encodeObject:self.routeProtocol forKey:kRouteProtocol];
-  [coder encodeObject:self.host forKey:kHost];
-  [coder encodeInt:self.port forKey:kPort];
-  [coder encodeInt:self.inactivity forKey:kInactivity];
-  [coder encodeBool:self.secure forKey:kSecure];
-  [coder encodeInt:self.requests forKey:kRequest];
-  [coder encodeObject:self.authid forKey:kAuthId];
-  [coder encodeObject:self.sid forKey:kSid];
-  [coder encodeObject:self.url forKey:kUrl];
+	[coder encodeInt64:nextRidToSend forKey:kNextRidToSend];
+	[coder encodeInt64:maxRidProcessed forKey:kMaxRidProcessed];
+	
+	[coder encodeObject:pendingXMPPStanzas forKey:kPendingXMPPStanza];
+	[coder encodeObject:boshWindowManager forKey:kBoshWindowManager] ;
+	[coder encodeInt:state forKey:kState];
+	
+	[coder encodeObject:requestResponsePairs forKey:kRequestResponsePairs];
+	
+	[coder encodeObject:disconnectError_ forKey:kDisconnectError_];
+	
+	[coder encodeInt:retryCounter  forKey:kRetryCounter];
+	[coder encodeDouble:nextRequestDelay forKey:kNextRequestDelay];
+	
+	[coder encodeObject:self.myJID forKey:kMyJID];
+	[coder encodeInt:self.wait forKey:kWait];
+	[coder encodeInt:self.hold forKey:kHold];
+	[coder encodeObject:self.lang forKey:kLang];
+	[coder encodeObject:self.domain forKey:kDomain];
+	[coder encodeObject:self.routeProtocol forKey:kRouteProtocol];
+	[coder encodeObject:self.host forKey:kHost];
+	[coder encodeInt:self.port forKey:kPort];
+	[coder encodeInt:self.inactivity forKey:kInactivity];
+	[coder encodeBool:self.secure forKey:kSecure];
+	[coder encodeInt:self.requests forKey:kRequest];
+	[coder encodeObject:self.authid forKey:kAuthId];
+	[coder encodeObject:self.sid forKey:kSid];
+	[coder encodeObject:self.url forKey:kUrl];
 }
 
 - (void)commonInitWithCoder:(NSCoder *)coder
 {
-  boshVersion = BoshVersion;
-  
-  nextRidToSend = [coder decodeInt64ForKey:kNextRidToSend];
-  maxRidProcessed = [coder decodeInt64ForKey:kMaxRidProcessed];
-  
-  pendingXMPPStanzas =[[coder decodeObjectForKey:kPendingXMPPStanza] retain];
-  boshWindowManager = [[coder decodeObjectForKey:kBoshWindowManager] retain];
-  state = [coder decodeIntForKey:kState];
-  
-  requestResponsePairs = [[coder decodeObjectForKey:kRequestResponsePairs] retain];
-  
-  disconnectError_ = [[coder decodeObjectForKey:kDisconnectError_] retain];
-  
-  retryCounter = [coder decodeIntForKey:kRetryCounter];
-  nextRequestDelay= [coder decodeDoubleForKey:kNextRequestDelay];
-  
-  
-  self.myJID= [coder decodeObjectForKey:kMyJID];
-  self.wait= [coder decodeIntForKey:kWait];
-  self.hold= [coder decodeIntForKey:kHold];
-  self.lang= [coder decodeObjectForKey:kLang];
-  self.domain= [coder decodeObjectForKey:kDomain];
-  self.routeProtocol= [coder decodeObjectForKey:kRouteProtocol];
-  self.host= [coder decodeObjectForKey:kHost];
-  self.port= [coder decodeIntForKey:kPort];
-  self.inactivity= [coder decodeIntForKey:kInactivity];
-  secure = [coder decodeBoolForKey:kSecure];
-  requests = [coder decodeIntForKey:kRequest];
-  self.authid= [coder decodeObjectForKey:kAuthId];
-  self.sid= [coder decodeObjectForKey:kSid];
-  self.url= [coder decodeObjectForKey:kUrl];
-  
-  multicastDelegate = [[MulticastDelegate alloc] init];
-  
+	boshVersion = BoshVersion;
+	
+	nextRidToSend = [coder decodeInt64ForKey:kNextRidToSend];
+	maxRidProcessed = [coder decodeInt64ForKey:kMaxRidProcessed];
+	
+	pendingXMPPStanzas =[[coder decodeObjectForKey:kPendingXMPPStanza] retain];
+	boshWindowManager = [[coder decodeObjectForKey:kBoshWindowManager] retain];
+	state = [coder decodeIntForKey:kState];
+	
+	requestResponsePairs = [[coder decodeObjectForKey:kRequestResponsePairs] retain];
+	
+	disconnectError_ = [[coder decodeObjectForKey:kDisconnectError_] retain];
+	
+	retryCounter = [coder decodeIntForKey:kRetryCounter];
+	nextRequestDelay= [coder decodeDoubleForKey:kNextRequestDelay];
+	
+	
+	self.myJID= [coder decodeObjectForKey:kMyJID];
+	self.wait= [coder decodeIntForKey:kWait];
+	self.hold= [coder decodeIntForKey:kHold];
+	self.lang= [coder decodeObjectForKey:kLang];
+	self.domain= [coder decodeObjectForKey:kDomain];
+	self.routeProtocol= [coder decodeObjectForKey:kRouteProtocol];
+	self.host= [coder decodeObjectForKey:kHost];
+	self.port= [coder decodeIntForKey:kPort];
+	self.inactivity= [coder decodeIntForKey:kInactivity];
+	secure = [coder decodeBoolForKey:kSecure];
+	requests = [coder decodeIntForKey:kRequest];
+	self.authid= [coder decodeObjectForKey:kAuthId];
+	self.sid= [coder decodeObjectForKey:kSid];
+	self.url= [coder decodeObjectForKey:kUrl];
+	
+	multicastDelegate = [[MulticastDelegate alloc] init];
+	
 }
 
 - (id)initWithCoder: (NSCoder *)coder
 {
-  self = [self init];
-  if (self && coder)
-  {
-    [self commonInitWithCoder:coder];
-  }
-  return self;
+	self = [self init];
+	if (self && coder)
+	{
+		[self commonInitWithCoder:coder];
+	}
+	return self;
 }
 
 /*
@@ -1062,16 +1062,15 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
  */
 - (void)resendRemainingRequests
 {
-  for ( NSNumber *ridNumber in [requestResponsePairs allKeys ])
-  { 
-    long long rid = [ridNumber longLongValue];
-    RequestResponsePair *pair = [requestResponsePairs objectForLongLongKey:rid];
-    if ( !pair.response )
-    {
-      [self sendHTTPRequestWithBody:pair.request rid:rid];
-    }
-  }
+	for ( NSNumber *ridNumber in [requestResponsePairs allKeys ])
+	{ 
+		long long rid = [ridNumber longLongValue];
+		RequestResponsePair *pair = [requestResponsePairs objectForLongLongKey:rid];
+		if ( !pair.response )
+		{
+			[self sendHTTPRequestWithBody:pair.request rid:rid];
+		}
+	}
 }
-
 
 @end
