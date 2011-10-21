@@ -1426,7 +1426,7 @@ enum XMPPStreamFlags
 	// Digest Access authentication requires us to know the ID attribute from the <stream:stream/> element.
 	
 	[rootElement release];
-	rootElement = [[self newRootElement] retain];
+	rootElement = [self newRootElement] ;
     if ([self isP2P] && [self isP2PRecipient])
     {
         self.remoteJID = [transport remoteJID];
