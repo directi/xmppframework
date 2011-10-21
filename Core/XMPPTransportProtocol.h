@@ -45,6 +45,7 @@
 - (BOOL)sendStanzaWithString:(NSString *)string;
 - (BOOL)supportsPause;
 
+@property (copy) NSString* sid;
 @optional
 - (void)secure;
 - (BOOL)isSecure;

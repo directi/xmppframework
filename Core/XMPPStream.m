@@ -1074,7 +1074,7 @@ enum XMPPStreamFlags
 - (void)handleStreamFeatures
 {
 	// Extract the stream features
-	NSXMLElement *features = [rootElement elementForName:@"stream:features"];
+	NSXMLElement *features = [rootElement elementForName:@"features"];
 	
 	// Check to see if TLS is required
 	// Don't forget about that NSXMLElement bug you reported to apple (xmlns is required or element won't be found)
@@ -1392,7 +1392,7 @@ enum XMPPStreamFlags
 		myJID = [[XMPPJID jidWithString:fullJIDStr] retain];
 		
 		// And we may now have to do one last thing before we're ready - start an IM session
-		NSXMLElement *features = [rootElement elementForName:@"stream:features"];
+		NSXMLElement *features = [rootElement elementForName:@"features"];
 		
 		// Check to see if a session is required
 		// Don't forget about that NSXMLElement bug you reported to apple (xmlns is required or element won't be found)
@@ -1534,7 +1534,7 @@ enum XMPPStreamFlags
 {
 	NSString *elementName = [element name];
 
-	if([elementName isEqualToString:@"stream:error"] || [elementName isEqualToString:@"error"])
+	if([elementName isEqualToString:@"stream:error"] || [elementName isEqualToString:@"error"] || [[element attributeStringValueForName:@"type"] isEqualToString:@"error"])
 	{
 		[multicastDelegate xmppStream:self didReceiveError:element];
 		return;

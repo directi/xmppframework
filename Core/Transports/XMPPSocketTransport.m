@@ -28,6 +28,8 @@
 @synthesize myJID;
 @synthesize remoteJID;
 @synthesize isP2PRecipient;
+@synthesize sid;
+@synthesize route;
 
 - (id)init
 {
@@ -84,6 +86,7 @@
 {
     [multicastDelegate release];
     [asyncSocket release];
+    [parser stop];
     [parser release];
     [host release];
     [rootElement release];
@@ -92,6 +95,7 @@
     [srvResults release];
     [keepAliveTimer invalidate];
 	[keepAliveTimer release];
+	[sid release];
     [super dealloc];
 }
 
@@ -227,18 +231,13 @@
 		// We're restarting our negotiation.
 		// This happens, for example, after securing the connection with SSL/TLS.
 		isRenegotiation = YES;
-		
-		// Since we're restarting the XML stream, we need to reset the parser.
-		[parser stop];
-		[parser release];
-		
-		parser = [(XMPPParser *)[XMPPParser alloc] initWithDelegate:self];
 	}
-	else if (parser == nil)
-	{
-		// Need to create parser (it was destroyed when the socket was last disconnected)
-		parser = [(XMPPParser *)[XMPPParser alloc] initWithDelegate:self];
-	}
+	
+	// Since we're restarting the XML stream, we need to reset the parser.
+	[parser stop];
+	[parser release];
+	
+	parser = [(XMPPParser *)[XMPPParser alloc] initWithDelegate:self];
 	
 	NSString *xmlns = @"jabber:client";
 	NSString *xmlns_stream = @"http://etherx.jabber.org/streams";
@@ -272,19 +271,22 @@
     {
         if (myJID)
         {
-            temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' to='%@'>";
-            s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream, [myJID domain]];
+            temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' to='%@' from='%@'";
+            s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream, [myJID domain],[myJID bare]];
         }
         else if ([host length] > 0)
         {
-            temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' to='%@'>";
+            temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' to='%@'";
             s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream, host];
         }
         else
         {
-            temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0'>";
+            temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0'";
             s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream];
         }
+        
+		s2 = [NSString stringWithFormat:@"%@ route='%@'>",s2,self.route];
+		
     }
     
     [self sendString:s2];
@@ -433,6 +435,12 @@
 	// We save the root element of our stream for future reference.
 	// Digest Access authentication requires us to know the ID attribute from the <stream:stream/> element.
 
+	NSString *currentSid = [root attributeStringValueForName:@"sid"];
+	if ( currentSid )
+	{
+		self.sid = currentSid;
+	}
+	
     [rootElement release];
     rootElement = [root retain];
     state = XMPP_SOCKET_CONNECTED;

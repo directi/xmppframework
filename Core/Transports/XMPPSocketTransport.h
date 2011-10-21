@@ -83,6 +83,8 @@ enum xmppSocketState {
 @property (retain) XMPPJID *myJID;
 @property (retain) XMPPJID *remoteJID;
 @property (readonly) BOOL isP2PRecipient;
+@property (retain, nonatomic) NSString *route;
+@property (copy) NSString* sid;
 
 - (id)init;
 - (id)initWithHost:(NSString *)host port:(UInt16)port;
