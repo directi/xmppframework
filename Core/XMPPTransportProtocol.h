@@ -78,4 +78,6 @@
 - (void)transport:(id <XMPPTransportProtocol>)transport didReceiveError:(id)error;
 - (void)transportDidSecure:(id <XMPPTransportProtocol>)transport;
 
+- (void)transportWillReconnect:(id <XMPPTransportProtocol>)transport;
+- (void)transportDidReconnect:(id <XMPPTransportProtocol>)transport;
 @end

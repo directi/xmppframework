@@ -211,6 +211,14 @@
     return isSecure;
 }
 
+- (void)sendOpeningXMLString
+{
+	NSString *s1 = @"<?xml version='1.0'?>";
+	
+	[self sendString:s1];
+	
+}
+
 /**
  * This method handles sending the opening <stream:stream ...> element which is needed in several situations.
  **/
@@ -218,12 +226,10 @@
 {
 	BOOL isRenegotiation = NO;
 	
-	if ((state == XMPP_SOCKET_OPENING) || (state == XMPP_SOCKET_RESTARTING))
+	if ((state == XMPP_SOCKET_OPENING) /*|| (state == XMPP_SOCKET_RESTARTING)*/)
 	{
 		// TCP connection was just opened - We need to include the opening XML stanza
-		NSString *s1 = @"<?xml version='1.0'?>";
-		
-        [self sendString:s1];
+		[self sendOpeningXMLString];
 	}
 
 	if (state != XMPP_SOCKET_OPENING)
@@ -357,6 +363,11 @@
 {
     [multicastDelegate transportWillConnect:self];
     return YES;
+}
+
+- (void)readDataOnAsyncSocket
+{
+	[asyncSocket readDataWithTimeout:TIMEOUT_READ_START tag:TAG_READ_START];
 }
 
 - (void)onSocket:(AsyncSocket *)socket didConnectToHost:(NSString *)givenHost port:(UInt16)givenPort
@@ -526,4 +537,85 @@
   return NO;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#pragma mark Protocol NSCoding Methods
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define kStateKey           @"state"    
+#define kNumberOfBytesSent  @"bytesSent"   
+#define kNumberOfBytesRecv  @"numberOfBytesRecv"
+#define kRootElement        @"kRootElement" 
+#define kSid                @"Sid"     
+
+#define kHost               @"TransportHost"
+#define kPort               @"TransportPort"
+#define kRoute              @"Route"
+
+#define kMyJID              @"MyJID"
+#define kSecure             @"isSecure"
+#define kKeepAliveInterval  @"keepAliveInterval"
+//?? NSTimer *keepAliveTimer;
+
+#define kIsP2P              @"isP2P"          
+#define kIsP2PRecipient     @"isP2PRecipient" 
+#define kRemoteJID          @"remoteJID"      
+
+
+// not really using these, as we are connecting to particular port.
+// might need later?
+
+//RFSRVResolver *srvResolver;
+//NSArray *srvResults;
+//NSUInteger srvResultsIndex;
+
+
+- (void)encodeWithCoder: (NSCoder *)coder
+{
+	[coder encodeInt:state forKey:kStateKey];
+	[coder encodeInt:numberOfBytesSent forKey:kNumberOfBytesSent];
+	[coder encodeInt:numberOfBytesReceived forKey:kNumberOfBytesRecv];
+	[coder encodeObject:self.sid forKey:kSid];
+	[coder encodeObject:host forKey:kHost];
+	[coder encodeInt:port forKey:kPort];
+	[coder encodeObject:self.route forKey:kRoute];
+	[coder encodeObject:myJID forKey:kMyJID];
+	[coder encodeBool:isSecure forKey:kSecure];
+	[coder encodeDouble:keepAliveInterval forKey:kKeepAliveInterval];
+	[coder encodeObject:remoteJID forKey:kRemoteJID];
+	[coder encodeBool:isP2P forKey:kIsP2P];
+	[coder encodeBool:isP2PRecipient forKey:kIsP2PRecipient];
+	
+	/*
+	 not encoding async socket or parser. That makes this implementation incomplete for XMPPSocketTransport 
+	 but, as I am working more for XMPPResumableSocketTransport, this implementation is fine. Remaining stanzas (unacknowledged)
+	 would be asked to send again in XMPPResumableSocketTransport, removing the need of archiving parser or socket.
+	 */
+}
+
+- (void)commonInitWithCoder:(NSCoder *)coder
+{
+	state                 = [coder decodeIntForKey:kStateKey];
+	numberOfBytesReceived = [coder decodeIntForKey:kNumberOfBytesRecv];
+	numberOfBytesSent     = [coder decodeIntForKey:kNumberOfBytesSent];
+	self.sid              = [coder decodeObjectForKey:kSid];
+	host                  = [coder decodeObjectForKey:kHost];
+	port                  = [coder decodeIntForKey:kPort];
+	self.route            = [coder decodeObjectForKey:kRoute];
+	self.myJID            = [coder decodeObjectForKey:kMyJID];
+	isSecure              = [coder decodeBoolForKey:kSecure];
+	keepAliveInterval     = [coder decodeDoubleForKey:kKeepAliveInterval];
+	self.remoteJID        = [coder decodeObjectForKey:kRemoteJID];
+	isP2P                 = [coder decodeBoolForKey:kIsP2P];
+	isP2PRecipient        = [coder decodeBoolForKey:kIsP2PRecipient];
+}
+
+- (id)initWithCoder: (NSCoder *)coder
+{
+	self = [self init];
+	if (self && coder)
+	{
+		[self commonInitWithCoder:coder];
+	}
+	return self;
+}
 @end

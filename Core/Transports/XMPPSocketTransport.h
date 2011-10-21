@@ -102,5 +102,4 @@ enum xmppSocketState {
 
 - (void)secure;
 - (BOOL)isSecure;
-
 @end
