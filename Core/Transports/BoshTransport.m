@@ -572,12 +572,18 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 */ 
 - (void)broadcastStanzas:(NSXMLNode *)body
 {
+    if ([body childCount] > 0) {
     while ([body childCount] > 0) {
         NSXMLNode *node = [body childAtIndex:0];
         if ([node isKindOfClass:[NSXMLElement class]]) {
             [node detach];
             [multicastDelegate transport:self didReceiveStanza:(NSXMLElement *)node];
         }
+    }
+    }
+    else
+    {
+        [multicastDelegate transportDidReceiveEmptyPacket:self];    
     }
 }
 
