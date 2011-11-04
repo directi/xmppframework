@@ -880,6 +880,9 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     [myJID_ release];
     [authid release];
     [sid_ release];
+    [boshWindowManager release];
+    [pendingXMPPStanzas release];
+    [requestResponsePairs release];
     [super dealloc];
 }
 @end
