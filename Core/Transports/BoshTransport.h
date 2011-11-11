@@ -11,6 +11,7 @@
 #import "XMPPJID.h"
 #import "MulticastDelegate.h"
 #import "ASIHTTPRequest.h"
+#import "PausableMockClass.h"
 
 typedef enum {
     ATTR_TYPE = 0,
@@ -83,7 +84,7 @@ typedef enum {
 
 #pragma mark -
 
-@interface BoshTransport : NSObject <XMPPTransportProtocol, NSCoding> {
+@interface BoshTransport : PausableMockClass <XMPPTransportProtocol, NSCoding> {
     NSString *boshVersion;
 
     long long nextRidToSend;
