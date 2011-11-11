@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import "MulticastDelegate.h"
 #import "XMPPTransportProtocol.h"
+#import "PausableMockClass.h"
 
 #if TARGET_OS_IPHONE
   #import "DDXML.h"
@@ -45,7 +46,7 @@ enum XMPPStreamErrorCode
 typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 
 
-@interface XMPPStream : NSObject <XMPPTransportDelegate, NSCoding>
+@interface XMPPStream : PausableMockClass <XMPPTransportDelegate, NSCoding>
 {
 	MulticastDelegate <XMPPStreamDelegate> *multicastDelegate;
 	
