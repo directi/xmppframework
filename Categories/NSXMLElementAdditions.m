@@ -219,4 +219,28 @@
 	return (namespace) ? [namespace stringValue] : defaultValue;
 }
 
++ (NSXMLElement *)parseWellFormatedXMLString:(NSString *)xml
+{
+	NSXMLDocument *doc = [[[NSXMLDocument alloc] initWithXMLString:xml
+														   options:0
+															 error:NULL] autorelease];
+	NSXMLElement *element = [doc rootElement];
+	[element detach];
+	return element;
+}
+
+#define kNSXMLElement @"NSXMLElementCompactXMLString"
+
+- (void)encodeWithCoder: (NSCoder *)coder
+{
+	[coder encodeObject:[self compactXMLString] forKey:kNSXMLElement];
+}
+
+- (id)initWithCoder: (NSCoder *)coder
+{
+	[self release];
+	self = [[NSXMLElement parseWellFormatedXMLString:(NSString *)[coder decodeObjectForKey:kNSXMLElement]] retain];
+	return self;
+}
+
 @end

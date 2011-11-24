@@ -82,6 +82,18 @@ enum XMPPStreamFlags
 @synthesize customAuthSelector;
 @synthesize customHandleAuthSelector;
 
+@dynamic transport;
+
+- (void)setTransport:(id<XMPPTransportProtocol>)givenTransport
+{
+	transport = [givenTransport retain];
+	[transport addDelegate:self];
+}
+
+- (id)transport
+{
+	return transport;
+}
 /**
  * Shared initialization between the various init methods.
 **/
@@ -100,8 +112,7 @@ enum XMPPStreamFlags
     if ((self = [super init]))
     {
         [self commonInit];
-        transport = givenTransport;
-        [transport addDelegate:self];
+        [self setTransport:givenTransport];
     }
     return self;
 }
@@ -130,6 +141,7 @@ enum XMPPStreamFlags
 **/
 - (void)dealloc
 {
+	[transport release];
 	[multicastDelegate release];
 	
 	[tempPassword release];
@@ -144,8 +156,74 @@ enum XMPPStreamFlags
 	[autoDelegateDict release];
 	
     [userTag release];
-	
+  
 	[super dealloc];
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#pragma mark NSCoding Protocol methods
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define kState			@"state"
+
+#define kFlags			@"flags"
+
+#define kTempPassword	@"tempPassword"
+
+#define kMyJID			@"myJID"
+#define kRemoteJID		@"remoteJID"
+
+#define kMYPresence		@"myPresence"
+#define	kRootelement	@"rootElement"
+
+#define kTransport		@"transport"
+
+//#define @"id userTag" not being used ryt now in the code, therefore not using
+//
+//#define @"id customAuthTarget"
+//#define @"SEL customAuthSelector"
+//#define @"SEL customHandleAuthSelector"
+
+- (void)encodeWithCoder: (NSCoder *)coder
+{
+	[coder encodeInt:state forKey:kState];
+	[coder encodeInt:flags forKey:kFlags];
+	[coder encodeObject:tempPassword forKey:kTempPassword];
+	[coder encodeObject:myJID forKey:kMyJID];
+	[coder encodeObject:remoteJID forKey:kRemoteJID];
+	
+	[coder encodeObject:myPresence  forKey:kMYPresence];
+	[coder encodeObject:rootElement forKey:kRootelement];
+	[coder encodeObject:transport	forKey:kTransport];
+}
+
+- (void)commonInitWithCoder:(NSCoder *)coder
+{
+	state = [coder decodeIntForKey:kState];
+	flags = (Byte) [coder decodeIntForKey:kFlags];
+	
+	tempPassword    = [[coder decodeObjectForKey:kTempPassword] copy];
+	myJID      = [[coder decodeObjectForKey:kMyJID] copy];
+	remoteJID  = [[coder decodeObjectForKey:kRemoteJID] copy] ;
+	
+	myPresence  = [[coder decodeObjectForKey:kMYPresence]  retain];
+	rootElement = [[coder decodeObjectForKey:kRootelement] retain];
+	
+	transport	= [[coder decodeObjectForKey:kTransport] retain];
+
+	multicastDelegate = [[MulticastDelegate alloc] init];
+	registeredModules = [[MulticastDelegate alloc] init];
+	autoDelegateDict  = [[NSMutableDictionary alloc] init];
+}
+
+- (id)initWithCoder: (NSCoder *)coder
+{
+	self = [super init];
+	if (self && coder)
+	{
+		[self commonInitWithCoder:coder];
+	}
+	return self;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1348,7 +1426,7 @@ enum XMPPStreamFlags
 	// Digest Access authentication requires us to know the ID attribute from the <stream:stream/> element.
 	
 	[rootElement release];
-	rootElement = [self newRootElement];
+	rootElement = [self newRootElement] ;
     if ([self isP2P] && [self isP2PRecipient])
     {
         self.remoteJID = [transport remoteJID];
