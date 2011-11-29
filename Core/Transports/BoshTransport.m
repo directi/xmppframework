@@ -983,6 +983,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 #define kAuthId			@"authid"
 #define kSid			@"sid"
 #define kUrl			@"url"
+#define kPersistedCookies  @"persistedCookies"
 
 
 - (void)encodeWithCoder: (NSCoder *)coder
@@ -1015,6 +1016,9 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 	[coder encodeObject:self.authid forKey:kAuthId];
 	[coder encodeObject:self.sid forKey:kSid];
 	[coder encodeObject:self.url forKey:kUrl];
+
+  DDLogRecvPre(@"BOSH: saving all Cookies = %@", [[NSHTTPCookieStorage sharedHTTPCookieStorage] cookies]);
+  [coder encodeObject:[[NSHTTPCookieStorage sharedHTTPCookieStorage] cookies] forKey:kPersistedCookies];
 }
 
 - (void)commonInitWithCoder:(NSCoder *)coder
@@ -1051,6 +1055,13 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 	self.sid= [coder decodeObjectForKey:kSid];
 	self.url= [coder decodeObjectForKey:kUrl];
 	
+  DDLogRecvPre(@"BOSH: restoring sessionCookies = %@", [coder decodeObjectForKey:kPersistedCookies]);
+  
+  for ( NSHTTPCookie *cookie in [coder decodeObjectForKey:kPersistedCookies] ) 
+  {
+    [[NSHTTPCookieStorage sharedHTTPCookieStorage] setCookie:cookie];
+  }
+  
 	multicastDelegate = [[MulticastDelegate alloc] init];
 	
 }
