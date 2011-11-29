@@ -82,8 +82,6 @@ enum XMPPStreamFlags
 @synthesize customAuthSelector;
 @synthesize customHandleAuthSelector;
 
-@dynamic transport;
-
 - (void)setTransport:(id<XMPPTransportProtocol>)givenTransport
 {
 	transport = [givenTransport retain];
@@ -209,7 +207,7 @@ enum XMPPStreamFlags
 	myPresence  = [[coder decodeObjectForKey:kMYPresence]  retain];
 	rootElement = [[coder decodeObjectForKey:kRootelement] retain];
 	
-	transport	= [[coder decodeObjectForKey:kTransport] retain];
+	self.transport	= [coder decodeObjectForKey:kTransport];
 
 	multicastDelegate = [[MulticastDelegate alloc] init];
 	registeredModules = [[MulticastDelegate alloc] init];
