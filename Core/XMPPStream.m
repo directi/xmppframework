@@ -25,8 +25,6 @@ enum XMPPStreamFlags
 	kP2PInitiator                 = 1 << 1,  // If set, we are the P2P initializer
 	kIsSecure                     = 1 << 2,  // If set, connection has been secured via SSL/TLS
 	kIsAuthenticated              = 1 << 3,  // If set, authentication has succeeded
-	kResetByteCountPerConnection  = 1 << 4,  // If set, byte count should be reset per connection
-	kSynchronousSendPending       = 1 << 5,  // If set, a synchronous send is in progress
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -65,10 +63,7 @@ enum XMPPStreamFlags
 @interface XMPPStream (PrivateAPI)
 
 - (void)setIsSecure:(BOOL)flag;
-
-- (void)sendOpeningNegotiation;
 - (void)setupKeepAliveTimer;
-
 @end
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -77,19 +72,28 @@ enum XMPPStreamFlags
 
 @implementation XMPPStream
 
-@synthesize hostName;
-@synthesize hostPort;
 @synthesize myJID;
 @synthesize remoteJID;
-@synthesize keepAliveInterval;
 @synthesize myPresence;
-@synthesize numberOfBytesSent;
-@synthesize numberOfBytesReceived;
 @synthesize registeredModules;
 @synthesize tag = userTag;
 
-@dynamic resetByteCountPerConnection;
+@synthesize customAuthTarget;
+@synthesize customAuthSelector;
+@synthesize customHandleAuthSelector;
 
+@synthesize paused;
+
+- (void)setTransport:(id<XMPPTransportProtocol>)givenTransport
+{
+	transport = [givenTransport retain];
+	[transport addDelegate:self];
+}
+
+- (id)transport
+{
+	return transport;
+}
 /**
  * Shared initialization between the various init methods.
 **/
@@ -99,58 +103,36 @@ enum XMPPStreamFlags
 	
 	state = STATE_DISCONNECTED;
 	
-	numberOfBytesSent = 0;
-	numberOfBytesReceived = 0;
-	
-	parser = [(XMPPParser *)[XMPPParser alloc] initWithDelegate:self];
-	
-	hostPort = 5222;
-	keepAliveInterval = DEFAULT_KEEPALIVE_INTERVAL;
-	
 	registeredModules = [[MulticastDelegate alloc] init];
 	autoDelegateDict = [[NSMutableDictionary alloc] init];
 }
 
-/**
- * Standard XMPP initialization.
- * The stream is a standard client to server connection.
-**/
-- (id)init
-{
-	if ((self = [super init]))
-	{
-		// Common initialization
-		[self commonInit];
-		
-		// Initialize socket
-		asyncSocket = [(AsyncSocket *)[AsyncSocket alloc] initWithDelegate:self];
-		
-		// Initialize configuration
-		flags = 0;
-	}
-	return self;
-}
-
-/**
- * Peer to Peer XMPP initialization.
- * The stream is a direct client to client connection as outlined in XEP-0174.
-**/
-- (id)initP2PFrom:(XMPPJID *)jid
+- (id)initWithTransport:(id<XMPPTransportProtocol>)givenTransport
 {
     if ((self = [super init]))
     {
-		// Common initialization
-		[self commonInit];
-		
-		// Store JID
-		myJID = [jid retain];
-        
-        // We do not initialize the socket, since the connectP2PWithSocket: method might be used.
-        
-        // Initialize configuration
+        [self commonInit];
+        [self setTransport:givenTransport];
+    }
+    return self;
+}
+
+- (id)initWithP2PTransport:(id<XMPPTransportProtocol>)givenTransport
+{
+    if ((self = [self initWithTransport:givenTransport]))
+    {
         flags = kP2PMode;
     }
-	return self;
+    return self;
+}
+
+- (NSXMLElement *)newRootElement
+{
+    NSString *streamNamespaceURI = @"http://etherx.jabber.org/streams";
+    NSXMLElement *element = [[NSXMLElement alloc] initWithName:@"stream" URI:streamNamespaceURI];
+    [element addNamespaceWithPrefix:@"stream" stringValue:streamNamespaceURI];
+    [element addNamespaceWithPrefix:@"" stringValue:@"jabber:client"];
+    return element;
 }
 
 /**
@@ -159,16 +141,8 @@ enum XMPPStreamFlags
 **/
 - (void)dealloc
 {
+	[transport release];
 	[multicastDelegate release];
-	
-	[asyncSocket setDelegate:nil];
-	[asyncSocket disconnect];
-	[asyncSocket release];
-	
-	[parser stop];
-	[parser release];
-	
-	[hostName release];
 	
 	[tempPassword release];
 	
@@ -178,20 +152,78 @@ enum XMPPStreamFlags
 	[myPresence release];
 	[rootElement release];
 	
-	[keepAliveTimer invalidate];
-	[keepAliveTimer release];
-	
 	[registeredModules release];
 	[autoDelegateDict release];
 	
-	[srvResolver release];
-	[srvResults release];
-	
-	[synchronousUUID release];
-    
     [userTag release];
-	
+  
 	[super dealloc];
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#pragma mark NSCoding Protocol methods
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define kState			@"state"
+
+#define kFlags			@"flags"
+
+#define kTempPassword	@"tempPassword"
+
+#define kMyJID			@"myJID"
+#define kRemoteJID		@"remoteJID"
+
+#define kMYPresence		@"myPresence"
+#define	kRootelement	@"rootElement"
+
+#define kTransport		@"transport"
+
+//#define @"id userTag" not being used ryt now in the code, therefore not using
+//
+//#define @"id customAuthTarget"
+//#define @"SEL customAuthSelector"
+//#define @"SEL customHandleAuthSelector"
+
+- (void)encodeWithCoder: (NSCoder *)coder
+{
+	[coder encodeInt:state forKey:kState];
+	[coder encodeInt:flags forKey:kFlags];
+	[coder encodeObject:tempPassword forKey:kTempPassword];
+	[coder encodeObject:myJID forKey:kMyJID];
+	[coder encodeObject:remoteJID forKey:kRemoteJID];
+	
+	[coder encodeObject:myPresence  forKey:kMYPresence];
+	[coder encodeObject:rootElement forKey:kRootelement];
+	[coder encodeObject:transport	forKey:kTransport];
+}
+
+- (void)commonInitWithCoder:(NSCoder *)coder
+{
+	state = [coder decodeIntForKey:kState];
+	flags = (Byte) [coder decodeIntForKey:kFlags];
+	
+	tempPassword    = [[coder decodeObjectForKey:kTempPassword] copy];
+	myJID      = [[coder decodeObjectForKey:kMyJID] copy];
+	remoteJID  = [[coder decodeObjectForKey:kRemoteJID] copy] ;
+	
+	myPresence  = [[coder decodeObjectForKey:kMYPresence]  retain];
+	rootElement = [[coder decodeObjectForKey:kRootelement] retain];
+	
+	self.transport	= [coder decodeObjectForKey:kTransport];
+
+	multicastDelegate = [[MulticastDelegate alloc] init];
+	registeredModules = [[MulticastDelegate alloc] init];
+	autoDelegateDict  = [[NSMutableDictionary alloc] init];
+}
+
+- (id)initWithCoder: (NSCoder *)coder
+{
+	self = [super init];
+	if (self && coder)
+	{
+		[self commonInitWithCoder:coder];
+	}
+	return self;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -217,31 +249,13 @@ enum XMPPStreamFlags
     return (flags & kP2PMode) ? YES : NO;
 }
 
-- (BOOL)isP2PInitiator
-{
-    return (flags & (kP2PMode | kP2PInitiator)) ? YES : NO;
-}
-
 - (BOOL)isP2PRecipient
 {
     if (flags & kP2PMode)
     {
-        return (flags & kP2PInitiator) ? NO : YES;
+        return [transport isP2PRecipient];
     }
     return NO;
-}
-
-- (BOOL)resetByteCountPerConnection
-{
-	return (flags & kResetByteCountPerConnection) ? YES : NO;
-}
-
-- (void)setResetByteCountPerConnection:(BOOL)flag
-{
-	if (flag)
-		flags |= kResetByteCountPerConnection;
-	else
-		flags &= ~kResetByteCountPerConnection;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -270,28 +284,20 @@ enum XMPPStreamFlags
 #pragma mark C2S Connection
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-- (BOOL)connectToHost:(NSString *)host onPort:(UInt16)port error:(NSError **)errPtr
-{
-	state = STATE_CONNECTING;
-	
-	BOOL result = [asyncSocket connectToHost:host onPort:port error:errPtr];
-	
-	if (result == NO)
-	{
-		state = STATE_DISCONNECTED;
-	}
-	else if ([self resetByteCountPerConnection])
-	{
-		numberOfBytesSent = 0;
-		numberOfBytesReceived = 0;
-	}
-	
-	return result;
-}
-
 - (BOOL)connect:(NSError **)errPtr
 {
-	if (state > STATE_RESOLVING_SRV)
+  if (self.isPaused) 
+  {
+		if (errPtr)
+		{
+			NSString *errMsg = @"Attempting to connect while xmppStream paused.";
+			NSDictionary *info = [NSDictionary dictionaryWithObject:errMsg forKey:NSLocalizedDescriptionKey];
+			
+			*errPtr = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
+		}
+		return NO;    
+  }
+	if (state > STATE_DISCONNECTED)
 	{
 		if (errPtr)
 		{
@@ -302,18 +308,6 @@ enum XMPPStreamFlags
 		}
 		return NO;
 	}
-	
-	if ([self isP2P])
-    {
-		if (errPtr)
-		{
-			NSString *errMsg = @"P2P streams must use either connectTo:withAddress: or connectP2PWithSocket:.";
-			NSDictionary *info = [NSDictionary dictionaryWithObject:errMsg forKey:NSLocalizedDescriptionKey];
-			
-			*errPtr = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidType userInfo:info];
-		}
-		return NO;
-    }
 	
 	if (myJID == nil)
 	{
@@ -344,185 +338,18 @@ enum XMPPStreamFlags
     // Notify delegates
     [multicastDelegate xmppStreamWillConnect:self];
 
-	if ([hostName length] == 0)
-	{
-		// Resolve the hostName via myJID SRV resolution
-		
-		state = STATE_RESOLVING_SRV;
-		
-		[srvResolver release];
-		srvResolver = [[RFSRVResolver resolveWithStream:self delegate:self] retain];
-		
-		return YES;
-	}
-	else
-	{
-		// Open TCP connection to the configured hostName.
-		
-		return [self connectToHost:hostName onPort:hostPort error:errPtr];
-	}
-}
-
-- (BOOL)oldSchoolSecureConnect:(NSError **)errPtr
-{
-	// Mark the secure flag.
-	// We will check the flag in onSocket:didConnectToHost:port:
-	[self setIsSecure:YES];
-	
-	// Then go through the regular connect routine
-	return [self connect:errPtr];
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#pragma mark P2P Connection
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/**
- * Starts a P2P connection to the given user and given address.
- * This method only works with XMPPStream objects created using the initP2P method.
- * 
- * The given address is specified as a sockaddr structure wrapped in a NSData object.
- * For example, a NSData object returned from NSNetservice's addresses method.
-**/
-- (BOOL)connectTo:(XMPPJID *)jid withAddress:(NSData *)remoteAddr error:(NSError **)errPtr
-{
-	if (state != STATE_DISCONNECTED)
-	{
-		if (errPtr)
-		{
-			NSString *errMsg = @"Attempting to connect while already connected or connecting.";
-			NSDictionary *info = [NSDictionary dictionaryWithObject:errMsg forKey:NSLocalizedDescriptionKey];
-			
-			*errPtr = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
-		}
-		return NO;
-	}
-	
-	if (![self isP2P])
+    // Instruct transport to open the connection
+    if (myJID)
     {
-		if (errPtr)
-		{
-			NSString *errMsg = @"Non P2P streams must use the connect: method";
-			NSDictionary *info = [NSDictionary dictionaryWithObject:errMsg forKey:NSLocalizedDescriptionKey];
-			
-			*errPtr = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidType userInfo:info];
-		}
-		return NO;
+        [transport setMyJID:myJID];
     }
-    
-	// Turn on P2P initiator flag
-	flags |= kP2PInitiator;
-	
-	// Store remoteJID
-    [remoteJID release];
-	remoteJID = [jid copy];
-	
-	NSAssert((asyncSocket == nil), @"Forgot to release the previous asyncSocket instance.");
-
-    // Notify delegates
-    [multicastDelegate xmppStreamWillConnect:self];
-
-	// Update state
-	state = STATE_CONNECTING;
-	
-	// Initailize socket
-	asyncSocket = [(AsyncSocket *)[AsyncSocket alloc] initWithDelegate:self];
-	
-	BOOL result = [asyncSocket connectToAddress:remoteAddr error:errPtr];
-	
-	if (result == NO)
-	{
-		state = STATE_DISCONNECTED;
-    }
-	else if ([self resetByteCountPerConnection])
-	{
-		numberOfBytesSent = 0;
-		numberOfBytesReceived = 0;
-	}
-	
-	return result;
-}
-
-/**
- * Starts a P2P connection with the given accepted socket.
- * This method only works with XMPPStream objects created using the initP2P method.
- * 
- * The given socket should be a socket that has already been accepted.
- * The remoteJID will be extracted from the opening stream negotiation.
-**/
-- (BOOL)connectP2PWithSocket:(AsyncSocket *)acceptedSocket error:(NSError **)errPtr
-{
-	if (state != STATE_DISCONNECTED)
-	{
-		if (errPtr)
-		{
-			NSString *errMsg = @"Attempting to connect while already connected or connecting.";
-			NSDictionary *info = [NSDictionary dictionaryWithObject:errMsg forKey:NSLocalizedDescriptionKey];
-			
-			*errPtr = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
-		}
-		return NO;
-	}
-	
-	if (![self isP2P])
+    if ([self isP2P] && remoteJID)
     {
-		if (errPtr)
-		{
-			NSString *errMsg = @"Non P2P streams must use the connect: method";
-			NSDictionary *info = [NSDictionary dictionaryWithObject:errMsg forKey:NSLocalizedDescriptionKey];
-			
-			*errPtr = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidType userInfo:info];
-		}
-		return NO;
+        [transport setRemoteJID:remoteJID];
     }
-	
-	if (acceptedSocket == nil)
-	{
-		if (errPtr)
-		{
-			NSString *errMsg = @"Parameter acceptedSocket is nil.";
-			NSDictionary *info = [NSDictionary dictionaryWithObject:errMsg forKey:NSLocalizedDescriptionKey];
-			
-			*errPtr = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidParameter userInfo:info];
-		}
-		return NO;
-	}
-	
-    // Turn off P2P initiator flag
-	flags &= ~kP2PInitiator;
-	
-	NSAssert((asyncSocket == nil), @"Forgot to release the previous asyncSocket instance.");
-	
-	// Store and configure socket
-    asyncSocket = [acceptedSocket retain];
-	[asyncSocket setDelegate:self];
-	
-    // Notify delegates
-    [multicastDelegate xmppStreamWillConnect:self];
-
-	// Update state
-	state = STATE_CONNECTING;
-	
-	if ([self resetByteCountPerConnection])
-	{
-		numberOfBytesSent = 0;
-		numberOfBytesReceived = 0;
-	}
-	
-	if ([acceptedSocket isConnected])
-	{
-		// Initialize the XML stream
-		[self sendOpeningNegotiation];
-		
-		// And start reading in the server's XML stream
-		[asyncSocket readDataWithTimeout:TIMEOUT_READ_START tag:TAG_READ_START];
-	}
-	else
-	{
-		// We'll wait for the onSocket:didConnectToHost:onPort: method which will handle everything for us.
-	}
-	
-    return YES;
+    BOOL result = [transport connect:errPtr];
+    state = STATE_OPENING;
+    return result;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -534,8 +361,9 @@ enum XMPPStreamFlags
 **/
 - (void)disconnect
 {
+    // FIXME: this method should be synchronous
 	[multicastDelegate xmppStreamWasToldToDisconnect:self];
-	[asyncSocket disconnect];
+	[transport disconnect];
 	
 	// Note: The state is updated automatically in the onSocketDidDisconnect: method.
 }
@@ -543,7 +371,7 @@ enum XMPPStreamFlags
 - (void)disconnectAfterSending
 {
 	[multicastDelegate xmppStreamWasToldToDisconnect:self];
-	[asyncSocket disconnectAfterWriting];
+	[transport disconnect];
 	
 	// Note: The state is updated automatically in the onSocketDidDisconnect: method.
 }
@@ -584,19 +412,23 @@ enum XMPPStreamFlags
 - (void)sendStartTLSRequest
 {
 	NSString *starttls = @"<starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>";
-	
-	NSData *outgoingData = [starttls dataUsingEncoding:NSUTF8StringEncoding];
-	
-	DDLogSend(@"SEND: %@", starttls);
-	numberOfBytesSent += [outgoingData length];
-	
-	[asyncSocket writeData:outgoingData
-			   withTimeout:TIMEOUT_WRITE
-					   tag:TAG_WRITE_STREAM];
+	[transport sendStanzaWithString:starttls];
 }
 
 - (BOOL)secureConnection:(NSError **)errPtr
 {
+  if (self.isPaused) 
+  {
+		if (errPtr)
+		{
+			NSString *errMsg = @"Attempting to secure connection while xmppStream is paused.";
+			NSDictionary *info = [NSDictionary dictionaryWithObject:errMsg forKey:NSLocalizedDescriptionKey];
+			
+			*errPtr = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
+		}
+		return NO;    
+  }
+
 	if (state != STATE_CONNECTED)
 	{
 		if (errPtr)
@@ -664,6 +496,18 @@ enum XMPPStreamFlags
 **/
 - (BOOL)registerWithPassword:(NSString *)password error:(NSError **)errPtr
 {
+  if (self.isPaused) 
+  {
+		if (errPtr)
+		{
+			NSString *errMsg = @"Attempting to register while xmppStream paused.";
+			NSDictionary *info = [NSDictionary dictionaryWithObject:errMsg forKey:NSLocalizedDescriptionKey];
+			
+			*errPtr = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
+		}
+		return NO;    
+  }
+
 	if (state != STATE_CONNECTED)
 	{
 		if (errPtr)
@@ -710,15 +554,7 @@ enum XMPPStreamFlags
 	[iqElement addAttributeWithName:@"type" stringValue:@"set"];
 	[iqElement addChild:queryElement];
 	
-	NSString *outgoingStr = [iqElement compactXMLString];
-	NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-	
-	DDLogSend(@"SEND: %@", outgoingStr);
-	numberOfBytesSent += [outgoingData length];
-	
-	[asyncSocket writeData:outgoingData
-	           withTimeout:TIMEOUT_WRITE
-	                   tag:TAG_WRITE_STREAM];
+    [transport sendStanza:iqElement];
 	
 	// Update state
 	state = STATE_REGISTERING;
@@ -892,6 +728,18 @@ enum XMPPStreamFlags
 **/
 - (BOOL)authenticateWithPassword:(NSString *)password error:(NSError **)errPtr
 {
+  if (self.isPaused) 
+  {
+		if (errPtr)
+		{
+			NSString *errMsg = @"Attempting to authenticate while xmppStream paused.";
+			NSDictionary *info = [NSDictionary dictionaryWithObject:errMsg forKey:NSLocalizedDescriptionKey];
+			
+			*errPtr = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
+		}
+		return NO;    
+  }
+
 	if (state != STATE_CONNECTED)
 	{
 		if (errPtr)
@@ -919,15 +767,7 @@ enum XMPPStreamFlags
 	if ([self supportsDigestMD5Authentication])
 	{
 		NSString *auth = @"<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='DIGEST-MD5'/>";
-		
-		NSData *outgoingData = [auth dataUsingEncoding:NSUTF8StringEncoding];
-		
-		DDLogSend(@"SEND: %@", auth);
-		numberOfBytesSent += [outgoingData length];
-		
-		[asyncSocket writeData:outgoingData
-				   withTimeout:TIMEOUT_WRITE
-						   tag:TAG_WRITE_STREAM];
+        [transport sendStanzaWithString:auth];
 		
 		// Save authentication information
 		[tempPassword release];
@@ -954,15 +794,7 @@ enum XMPPStreamFlags
 		[auth addAttributeWithName:@"mechanism" stringValue:@"PLAIN"];
 		[auth setStringValue:base64];
 		
-		NSString *outgoingStr = [auth compactXMLString];
-		NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-		
-		DDLogSend(@"SEND: %@", outgoingStr);
-		numberOfBytesSent += [outgoingData length];
-		
-		[asyncSocket writeData:outgoingData
-				   withTimeout:TIMEOUT_WRITE
-						   tag:TAG_WRITE_STREAM];
+        [transport sendStanza:auth];
 		
 		// Update state
 		state = STATE_AUTH_1;
@@ -1005,16 +837,8 @@ enum XMPPStreamFlags
 		[iqElement addAttributeWithName:@"type" stringValue:@"set"];
 		[iqElement addChild:queryElement];
 		
-		NSString *outgoingStr = [iqElement compactXMLString];
-		NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-		
-		DDLogSend(@"SEND: %@", outgoingStr);
-		numberOfBytesSent += [outgoingData length];
-		
-		[asyncSocket writeData:outgoingData
-				   withTimeout:TIMEOUT_WRITE
-						   tag:TAG_WRITE_STREAM];
-		
+        [transport sendStanza:iqElement];
+
 		// Update state
 		state = STATE_AUTH_1;
 	}
@@ -1027,6 +851,18 @@ enum XMPPStreamFlags
  **/
 - (BOOL)authenticateAnonymously:(NSError **)errPtr
 {
+  if (self.isPaused) 
+  {
+		if (errPtr)
+		{
+			NSString *errMsg = @"Attempting to connect while xmppStream paused.";
+			NSDictionary *info = [NSDictionary dictionaryWithObject:errMsg forKey:NSLocalizedDescriptionKey];
+			
+			*errPtr = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
+		}
+		return NO;    
+  }
+
 	if (state != STATE_CONNECTED)
 	{
 		if (errPtr)
@@ -1055,15 +891,7 @@ enum XMPPStreamFlags
 	NSXMLElement *auth = [NSXMLElement elementWithName:@"auth" xmlns:@"urn:ietf:params:xml:ns:xmpp-sasl"];
 	[auth addAttributeWithName:@"mechanism" stringValue:@"ANONYMOUS"];
 	
-	NSString *outgoingStr = [auth compactXMLString];
-	NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-	
-	DDLogSend(@"SEND: %@", outgoingStr);
-	numberOfBytesSent += [outgoingData length];
-	
-	[asyncSocket writeData:outgoingData
-	           withTimeout:TIMEOUT_WRITE
-	                   tag:TAG_WRITE_STREAM];
+    [transport sendStanza:auth];
 	
 	// Update state
 	state = STATE_AUTH_3;
@@ -1081,6 +909,30 @@ enum XMPPStreamFlags
 		flags |= kIsAuthenticated;
 	else
 		flags &= ~kIsAuthenticated;
+}
+
+/**
+ * Custom Authentication.
+**/
+- (BOOL)startCustomAuthenticationWithTarget:(id)target authSelector:(SEL)authSelector handleAuthSelector:(SEL)handleAuthSelector
+{
+  if (self.isPaused) 
+  {
+		return NO;    
+  }
+
+	if (state != STATE_CONNECTED)
+	{
+		return NO;
+	}
+	
+	state = STATE_CUSTOM_AUTH;
+	customAuthTarget = [target retain];
+	customAuthSelector = authSelector;
+	customHandleAuthSelector = handleAuthSelector;
+	
+	[target performSelector:authSelector];
+	return YES;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1146,15 +998,7 @@ enum XMPPStreamFlags
 		}
 	}
 	
-	NSString *outgoingStr = [element compactXMLString];
-	NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-	
-	DDLogSend(@"SEND: %@", outgoingStr);
-	numberOfBytesSent += [outgoingData length];
-	
-	[asyncSocket writeData:outgoingData
-	           withTimeout:TIMEOUT_WRITE
-	                   tag:tag];
+    [transport sendStanza:element];
 	
 	if ([element isKindOfClass:[XMPPIQ class]])
 	{
@@ -1194,9 +1038,9 @@ enum XMPPStreamFlags
 **/
 - (void)sendElement:(NSXMLElement *)element
 {
-	if (state == STATE_CONNECTED)
+	if ((state == STATE_CONNECTED || state == STATE_CUSTOM_AUTH) && !self.isPaused )
 	{
-		[self sendElement:element withTag:TAG_WRITE_STREAM];
+		[self sendElement:element withTag:0];
 	}
 }
 
@@ -1209,188 +1053,18 @@ enum XMPPStreamFlags
 **/
 - (void)sendElement:(NSXMLElement *)element andNotifyMe:(UInt16)tag
 {
-	if (state == STATE_CONNECTED)
+	if (state == STATE_CONNECTED && !self.isPaused)
 	{
 		[self sendElement:element withTag:tag];
 	}
 }
-
-- (BOOL)synchronouslySendElement:(NSXMLElement *)element
-{
-	if (state == STATE_CONNECTED)
-	{
-		NSString *innerRunLoopMode = @"XMPPStreamSynchronousMode";
-		
-		[self retain];
-		[asyncSocket addRunLoopMode:innerRunLoopMode];
-		
-		flags |= kSynchronousSendPending;
-		[self sendElement:element withTag:TAG_WRITE_SYNCHRONOUS];
-		
-		NSString *uuid = [self generateUUID];
-		
-		[synchronousUUID release];
-		synchronousUUID = [uuid retain];
-		
-		BOOL noError = YES;
-		while (noError && (uuid == synchronousUUID) && (flags & kSynchronousSendPending))
-		{
-			NSAutoreleasePool *innerPool = [[NSAutoreleasePool alloc] init];
-			
-			noError = [[NSRunLoop currentRunLoop] runMode:innerRunLoopMode
-			                                   beforeDate:[NSDate dateWithTimeIntervalSinceNow:1.0]];
-			[innerPool release];
-		}
-		
-		[asyncSocket removeRunLoopMode:innerRunLoopMode];
-		[self autorelease];
-		
-		BOOL result = noError && (uuid == synchronousUUID);
-		
-		[synchronousUUID release];
-		synchronousUUID = nil;
-		
-		return result;
-	}
-	
-	return NO;
-}
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark Stream Negotiation
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/**
- * This method handles sending the opening <stream:stream ...> element which is needed in several situations.
-**/
-- (void)sendOpeningNegotiation
+- (void)restartStream
 {
-	BOOL isRenegotiation = NO;
-	
-	if (state == STATE_CONNECTING)
-	{
-		// TCP connection was just opened - We need to include the opening XML stanza
-		NSString *s1 = @"<?xml version='1.0'?>";
-		
-		NSData *outgoingData = [s1 dataUsingEncoding:NSUTF8StringEncoding];
-		
-		DDLogSend(@"SEND: %@", s1);
-		numberOfBytesSent += [outgoingData length];
-		
-		[asyncSocket writeData:outgoingData
-				   withTimeout:TIMEOUT_WRITE
-						   tag:TAG_WRITE_START];
-	}
-	
-	if (state != STATE_CONNECTING)
-	{
-		// We're restarting our negotiation.
-		// This happens, for example, after securing the connection with SSL/TLS.
-		isRenegotiation = YES;
-		
-		// Since we're restarting the XML stream, we need to reset the parser.
-		[parser stop];
-		[parser release];
-		
-		parser = [(XMPPParser *)[XMPPParser alloc] initWithDelegate:self];
-	}
-	else if (parser == nil)
-	{
-		// Need to create parser (it was destroyed when the socket was last disconnected)
-		parser = [(XMPPParser *)[XMPPParser alloc] initWithDelegate:self];
-	}
-	
-	NSString *xmlns = @"jabber:client";
-	NSString *xmlns_stream = @"http://etherx.jabber.org/streams";
-	
-	NSString *temp, *s2;
-    if ([self isP2P])
-    {
-		if (myJID && remoteJID)
-		{
-			temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' from='%@' to='%@'>";
-			s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream, [myJID bare], [remoteJID bare]];
-		}
-		else if (myJID)
-		{
-			temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' from='%@'>";
-			s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream, [myJID bare]];
-		}
-		else if (remoteJID)
-		{
-			temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' to='%@'>";
-			s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream, [remoteJID bare]];
-		}
-		else
-		{
-			temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0'>";
-			s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream];
-		}
-    }
-    else
-    {
-		if (myJID)
-		{
-			temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' to='%@'>";
-            s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream, [myJID domain]];
-		}
-        else if ([hostName length] > 0)
-        {
-            temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' to='%@'>";
-            s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream, hostName];
-        }
-        else
-        {
-            temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0'>";
-            s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream];
-        }
-    }
-	
-	NSData *outgoingData = [s2 dataUsingEncoding:NSUTF8StringEncoding];
-	
-	DDLogSend(@"SEND: %@", s2);
-	numberOfBytesSent += [outgoingData length];
-	
-	[asyncSocket writeData:outgoingData
-			   withTimeout:TIMEOUT_WRITE
-					   tag:TAG_WRITE_START];
-	
-	// Update status
-	state = STATE_OPENING;
-	
-	// For a reneogitation, we need to manually read from the socket.
-	// This is because we had to reset our parser, which is usually used to continue the reading process.
-	if (isRenegotiation)
-	{
-		[asyncSocket readDataWithTimeout:TIMEOUT_READ_START tag:TAG_READ_START];
-	}
-}
-
-/**
- * This method handles starting TLS negotiation on the socket, using the proper settings.
-**/
-- (void)startTLS
-{
-	// Create a mutable dictionary for security settings
-	NSMutableDictionary *settings = [NSMutableDictionary dictionaryWithCapacity:5];
-	
-	// Prompt the delegate(s) to populate the security settings
-	[multicastDelegate xmppStream:self willSecureWithSettings:settings];
-	
-	// If the delegates didn't respond
-	if ([settings count] == 0)
-	{
-		// Use the default settings, and set the peer name
-		if (hostName)
-		{
-			[settings setObject:hostName forKey:(NSString *)kCFStreamSSLPeerName];
-		}
-	}
-	
-	[asyncSocket startTLS:settings];
-	
-	// Note: We don't need to wait for asyncSocket to complete TLS negotiation.
-	// We can just continue reading/writing to the socket, and it will handle queueing everything for us!
+    [transport restartStream];
 }
 
 /**
@@ -1431,7 +1105,7 @@ enum XMPPStreamFlags
 	// Don't forget about that NSXMLElement bug you reported to apple (xmlns is required or element won't be found)
 	NSXMLElement *f_bind = [features elementForName:@"bind" xmlns:@"urn:ietf:params:xml:ns:xmpp-bind"];
 	
-	if (f_bind)
+	if ([self isAuthenticated] && f_bind)
 	{
 		// Binding is required for this connection
 		state = STATE_BINDING;
@@ -1452,15 +1126,7 @@ enum XMPPStreamFlags
 			[iq addAttributeWithName:@"type" stringValue:@"set"];
 			[iq addChild:bind];
 			
-			NSString *outgoingStr = [iq compactXMLString];
-			NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-			
-			DDLogSend(@"SEND: %@", outgoingStr);
-			numberOfBytesSent += [outgoingData length];
-			
-			[asyncSocket writeData:outgoingData
-					   withTimeout:TIMEOUT_WRITE
-							   tag:TAG_WRITE_STREAM];
+            [transport sendStanza:iq];
 		}
 		else
 		{
@@ -1472,15 +1138,7 @@ enum XMPPStreamFlags
 			[iq addAttributeWithName:@"type" stringValue:@"set"];
 			[iq addChild:bind];
 			
-			NSString *outgoingStr = [iq compactXMLString];
-			NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-			
-			DDLogSend(@"SEND: %@", outgoingStr);
-			numberOfBytesSent += [outgoingData length];
-			
-			[asyncSocket writeData:outgoingData
-					   withTimeout:TIMEOUT_WRITE
-							   tag:TAG_WRITE_STREAM];
+            [transport sendStanza:iq];
 		}
 		
 		// We're already listening for the response...
@@ -1492,8 +1150,6 @@ enum XMPPStreamFlags
 	
 	if (![self isAuthenticated])
 	{
-		[self setupKeepAliveTimer];
-		
 		// Notify delegates
 		[multicastDelegate xmppStreamDidConnect:self];
 	}
@@ -1513,13 +1169,10 @@ enum XMPPStreamFlags
 	}
 	
 	// Start TLS negotiation
-	[self startTLS];
+	[transport secure];
 	
 	// Make a note of the switch to TLS
 	[self setIsSecure:YES];
-	
-	// Now we start our negotiation over again...
-	[self sendOpeningNegotiation];
 }
 
 /**
@@ -1572,23 +1225,19 @@ enum XMPPStreamFlags
 			XMPPDigestAuthentication *auth = [[XMPPDigestAuthentication alloc] initWithChallenge:response];
 			
 			NSString *virtualHostName = [myJID domain];
-			NSString *serverHostName = hostName;
 			
 			// Sometimes the realm isn't specified
 			// In this case I believe the realm is implied as the virtual host name
+            // Note: earlier, in case the virtual host name was not set, the server host name was used.
+            // However with the introduction of BOSH, we can't always know the server host name,
+            // so we rely only on virtual hostnames for auth realm and digest URI.
 			if (![auth realm])
 			{
-				if([virtualHostName length] > 0)
-					[auth setRealm:virtualHostName];
-				else
-					[auth setRealm:serverHostName];
+                [auth setRealm:virtualHostName];
 			}
 			
 			// Set digest-uri
-			if([virtualHostName length] > 0)
-				[auth setDigestURI:[NSString stringWithFormat:@"xmpp/%@", virtualHostName]];
-			else
-				[auth setDigestURI:[NSString stringWithFormat:@"xmpp/%@", serverHostName]];
+            [auth setDigestURI:[NSString stringWithFormat:@"xmpp/%@", virtualHostName]];
 			
 			// Set username and password
 			[auth setUsername:[myJID user] password:tempPassword];
@@ -1597,16 +1246,8 @@ enum XMPPStreamFlags
 			NSXMLElement *cr = [NSXMLElement elementWithName:@"response" xmlns:@"urn:ietf:params:xml:ns:xmpp-sasl"];
 			[cr setStringValue:[auth base64EncodedFullResponse]];
 			
-			NSString *outgoingStr = [cr compactXMLString];
-			NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-			
-			DDLogSend(@"SEND: %@", outgoingStr);
-			numberOfBytesSent += [outgoingData length];
-			
-			[asyncSocket writeData:outgoingData
-					   withTimeout:TIMEOUT_WRITE
-							   tag:TAG_WRITE_STREAM];
-			
+            [transport sendStanza:cr];
+            
 			// Release unneeded resources
 			[auth release];
 			[tempPassword release]; tempPassword = nil;
@@ -1630,9 +1271,10 @@ enum XMPPStreamFlags
 		{
 			// We are successfully authenticated (via sasl:plain)
 			[self setIsAuthenticated:YES];
+			state = STATE_NEGOTIATING;
 			
 			// Now we start our negotiation over again...
-			[self sendOpeningNegotiation];
+			[self restartStream];
 		}
 	}
 	else
@@ -1688,15 +1330,7 @@ enum XMPPStreamFlags
 			// Create and send empty challenge response element
 			NSXMLElement *cr = [NSXMLElement elementWithName:@"response" xmlns:@"urn:ietf:params:xml:ns:xmpp-sasl"];
 			
-			NSString *outgoingStr = [cr compactXMLString];
-			NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-			
-			DDLogSend(@"SEND: %@", outgoingStr);
-			numberOfBytesSent += [outgoingData length];
-			
-			[asyncSocket writeData:outgoingData
-					   withTimeout:TIMEOUT_WRITE
-							   tag:TAG_WRITE_STREAM];
+            [transport sendStanza:cr];
 			
 			// The state remains in STATE_AUTH_2
 		}
@@ -1705,9 +1339,9 @@ enum XMPPStreamFlags
 	{
 		// We are successfully authenticated (via sasl:digest-md5)
 		[self setIsAuthenticated:YES];
-		
+		state = STATE_NEGOTIATING;
 		// Now we start our negotiation over again...
-		[self sendOpeningNegotiation];
+		[self restartStream];
 	}
 	else
 	{
@@ -1715,7 +1349,6 @@ enum XMPPStreamFlags
 		
 		// Revert back to connected state (from authenticating state)
 		state = STATE_CONNECTED;
-		
 		[multicastDelegate xmppStream:self didNotAuthenticate:response];
 	}
 }
@@ -1740,7 +1373,7 @@ enum XMPPStreamFlags
 		[self setIsAuthenticated:YES];
 		
 		// Now we start our negotiation over again...
-		[self sendOpeningNegotiation];
+		[self restartStream];
 	}
 }
 
@@ -1774,16 +1407,7 @@ enum XMPPStreamFlags
 			[iq addAttributeWithName:@"type" stringValue:@"set"];
 			[iq addChild:session];
 			
-			NSString *outgoingStr = [iq compactXMLString];
-			NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-			
-			DDLogSend(@"SEND: %@", outgoingStr);
-			numberOfBytesSent += [outgoingData length];
-			
-			[asyncSocket writeData:outgoingData
-					   withTimeout:TIMEOUT_WRITE
-							   tag:TAG_WRITE_STREAM];
-			
+            [transport sendStanza:iq];
 			// Update state
 			state = STATE_START_SESSION;
 		}
@@ -1806,16 +1430,7 @@ enum XMPPStreamFlags
 		[iq addAttributeWithName:@"type" stringValue:@"set"];
 		[iq addChild:bind];
 		
-		NSString *outgoingStr = [iq compactXMLString];
-		NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-		
-		DDLogSend(@"SEND: %@", outgoingStr);
-		numberOfBytesSent += [outgoingData length];
-		
-		[asyncSocket writeData:outgoingData
-				   withTimeout:TIMEOUT_WRITE
-						   tag:TAG_WRITE_STREAM];
-		
+		[transport sendStanza:iq];
 		// The state remains in STATE_BINDING
 	}
 }
@@ -1829,6 +1444,10 @@ enum XMPPStreamFlags
 		
 		[multicastDelegate xmppStreamDidAuthenticate:self];
 	}
+  
+  //Commenting out this code since pappu doesn't honour rfc right now
+  //should be changed once pappu starts doing the correct thing.
+  /*
 	else
 	{
 		// Revert back to connected state (from start session state)
@@ -1836,333 +1455,98 @@ enum XMPPStreamFlags
 		
 		[multicastDelegate xmppStream:self didNotAuthenticate:response];
 	}
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#pragma mark RFSRVResolver Delegate
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-- (void)tryNextSrvResult
-{
-    DDLogTrace();
-	NSError *connectError = nil;
-	BOOL success = NO;
-	
-	while (srvResultsIndex < [srvResults count])
-	{
-		RFSRVRecord *srvRecord = [srvResults objectAtIndex:srvResultsIndex];
-		NSString *srvHost = srvRecord.target;
-		UInt16 srvPort    = srvRecord.port;
-		
-		success = [self connectToHost:srvHost onPort:srvPort error:&connectError];
-		
-		if (success)
-		{
-			break;
-		}
-		else
-		{
-			srvResultsIndex++;
-		}
-	}
-	
-	if (!success)
-	{
-		// SRV resolution of the JID domain failed.
-		// As per the RFC:
-		// 
-		// "If the SRV lookup fails, the fallback is a normal IPv4/IPv6 address record resolution
-		// to determine the IP address, using the "xmpp-client" port 5222, registered with the IANA."
-		// 
-		// In other words, just try connecting to the domain specified in the JID.
-		
-		success = [self connectToHost:[myJID domain] onPort:5222 error:&connectError];
-	}
-	
-	if (!success)
-	{
-		state = STATE_DISCONNECTED;
-		
-		[multicastDelegate xmppStream:self didReceiveError:connectError];
-		[multicastDelegate xmppStreamDidDisconnect:self];
-	}
-}
-
-- (void)srvResolverDidResoveSRV:(RFSRVResolver *)sender
-{
-    DDLogTrace();
-	srvResults = [[sender results] copy];
-	srvResultsIndex = 0;
-	
-	[self tryNextSrvResult];
-}
-
-- (void)srvResolver:(RFSRVResolver *)sender didNotResolveSRVWithError:(NSError *)srvError
-{
-    DDLogError(@"%s %@",__PRETTY_FUNCTION__,srvError);
-    
-	[self tryNextSrvResult];
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#pragma mark AsyncSocket Delegate
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-- (BOOL)onSocketWillConnect:(AsyncSocket *)socket {
-    [multicastDelegate xmppStream:self socketWillConnect:socket];
-
-	return YES;
+   */
 }
 
 /**
- * Called when a socket connects and is ready for reading and writing. "host" will be an IP address, not a DNS name.
+ * Handling of custom authentication responses.
 **/
-- (void)onSocket:(AsyncSocket *)sock didConnectToHost:(NSString *)host port:(UInt16)port
-{
-	// The TCP connection is now established
+- (void)didFinishCustomAuthentication {
+	// We are successfully authenticated
+	[self setIsAuthenticated:YES];
+	state = STATE_NEGOTIATING;
 	
-	[srvResolver release];
-	srvResolver = nil;
-	
-	[srvResults release];
-	srvResults = nil;
-	
-	// Are we using old-style SSL? (Not the upgrade to TLS technique specified in the XMPP RFC)
-	if ([self isSecure])
-	{
-		// The connection must be secured immediately (just like with HTTPS)
-		[self startTLS];
-		
-		// Note: We don't need to wait for asyncSocket to complete TLS negotiation.
-		// We can just continue reading/writing to the socket, and it will handle queueing everything for us!
-	}
-	
-	// Initialize the XML stream
-	[self sendOpeningNegotiation];
-	
-	// Inform delegate that the TCP connection is open, and the stream handshake has begun
-	[multicastDelegate xmppStreamDidStartNegotiation:self];
-	
-	// And start reading in the server's XML stream
-	[asyncSocket readDataWithTimeout:TIMEOUT_READ_START tag:TAG_READ_START];
+	// Now we start our negotiation over again...
+	[self restartStream];
+	[customAuthTarget release];
 }
 
-- (void)onSocketDidSecure:(AsyncSocket *)sock
-{
-	[multicastDelegate xmppStreamDidSecure:self];
-}
-
-/**
- * Called when a socket has completed reading the requested data. Not called if there is an error.
-**/
-- (void)onSocket:(AsyncSocket *)sock didReadData:(NSData *)data withTag:(long)tag
-{
-	if (DEBUG_RECV_PRE)
-	{
-		NSString *dataAsStr = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-		
-		DDLogRecvPre(@"RECV: %@", dataAsStr);
-		
-		[dataAsStr release];
-	}
+- (void)didFailCustomAuthentication:(NSXMLElement *)response {
+	// Revert back to connected state (from authenticating state)
+	state = STATE_CONNECTED;
 	
-	numberOfBytesReceived += [data length];
-	
-	[parser parseData:data];
+	[multicastDelegate xmppStream:self didNotAuthenticate:response];
+	[customAuthTarget release];
 }
 
-/**
- * Called after data with the given tag has been successfully sent.
-**/
-- (void)onSocket:(AsyncSocket *)sock didWriteDataWithTag:(long)tag
-{
-	if ((tag >= 0) && (tag <= UINT16_MAX))
-	{
-		[multicastDelegate xmppStream:self didSendElementWithTag:tag];
-	}
-	else if (tag == TAG_WRITE_SYNCHRONOUS)
-	{
-		flags &= ~kSynchronousSendPending;
-	}
-}
+//////////////////////////////////////
+#pragma mark XMPPTransport Delegate
+//////////////////////////////////////
 
-/**
- * In the event of an error, the socket is closed.
- * When connecting, this delegate method may be called before onSocket:didConnectToHost:
-**/
-- (void)onSocket:(AsyncSocket *)sock willDisconnectWithError:(NSError *)err
-{
-	[multicastDelegate xmppStream:self didReceiveError:err];
-}
-
-/**
- * Called when a socket disconnects with or without error.  If you want to release a socket after it disconnects,
- * do so here. It is not safe to do that during "onSocket:willDisconnectWithError:".
-**/
-- (void)onSocketDidDisconnect:(AsyncSocket *)sock
-{
-	if (srvResults && (++srvResultsIndex < [srvResults count]))
-	{
-		[self tryNextSrvResult];
-	}
-	else
-	{
-		// Update state
-		state = STATE_DISCONNECTED;
-		
-		// Update configuration
-		[self setIsSecure:NO];
-		[self setIsAuthenticated:NO];
-		
-		// Release the parser (to free underlying resources)
-		[parser stop];
-		[parser release];
-		parser = nil;
-		
-		// Clear stored elements
-		[myPresence release]; myPresence = nil;
-		[rootElement release]; rootElement = nil;
-		
-		// Clear any saved authentication information
-		[tempPassword release]; tempPassword = nil;
-		
-		// Clear srv results
-		[srvResolver release]; srvResolver = nil;
-		[srvResults release];  srvResults = nil;
-		
-		// Clear any synchronous send attempts
-		[synchronousUUID release]; synchronousUUID = nil;
-		
-		// Stop the keep alive timer
-		[keepAliveTimer invalidate];
-		[keepAliveTimer release];
-		keepAliveTimer = nil;
-		
-		// Notify delegate
-		[multicastDelegate xmppStreamDidDisconnect:self];
-	}
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#pragma mark XMPPParser Delegate
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/**
- * Called when the xmpp parser has read in the entire root element.
-**/
-- (void)xmppParser:(XMPPParser *)sender didReadRoot:(NSXMLElement *)root
-{
-	DDLogRecvPost(@"RECV: %@", [root compactXMLString]);
-	
+- (void)transportDidConnect:(id<XMPPTransportProtocol>)sender
+{	
 	// At this point we've sent our XML stream header, and we've received the response XML stream header.
 	// We save the root element of our stream for future reference.
 	// Digest Access authentication requires us to know the ID attribute from the <stream:stream/> element.
 	
 	[rootElement release];
-	rootElement = [root retain];
-	
-    if([self isP2P])
+	rootElement = [self newRootElement] ;
+    if ([self isP2P] && [self isP2PRecipient])
     {
-        // XEP-0174 specifies that <stream:features/> SHOULD be sent by the receiver.
-        // In other words, if we're the recipient we will now send our features.
-        // But if we're the initiator, we can't depend on receiving their features.
-        
-        // Either way, we're connected at this point.
+        self.remoteJID = [transport remoteJID];
+        NSXMLElement *streamFeatures = [NSXMLElement elementWithName:@"stream:features"];
+        [transport sendStanza:streamFeatures];
         state = STATE_CONNECTED;
+        return;
+    }
+	
+    // Check for RFC compliance
+    if([transport serverXmppStreamVersionNumber] >= 1.0)
+    {
+        // Update state - we're now onto stream negotiations
+        state = STATE_NEGOTIATING;
         
-        if([self isP2PRecipient])
-        {
-			// Extract the remoteJID:
-			// 
-			// <stream:stream ... from='<remoteJID>' to='<myJID>'>
-			
-			NSString *from = [[rootElement attributeForName:@"from"] stringValue];
-			remoteJID = [[XMPPJID jidWithString:from] retain];
-			
-			// Send our stream features.
-			// To do so we need to ask the delegate to fill it out for us.
-			
-            NSXMLElement *streamFeatures = [NSXMLElement elementWithName:@"stream:features"];
-            
-			[multicastDelegate xmppStream:self willSendP2PFeatures:streamFeatures];
-			
-			NSString *outgoingStr = [streamFeatures compactXMLString];
-			NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-			
-            DDLogSend(@"SEND: %@", outgoingStr);
-			numberOfBytesSent += [outgoingData length];
-			
-            [asyncSocket writeData:outgoingData
-                       withTimeout:TIMEOUT_WRITE
-                               tag:TAG_WRITE_STREAM];
-            
-        }
-        
-        // Make sure the delegate didn't disconnect us in the xmppStream:willSendP2PFeatures: method.
-        
-        if([self isConnected])
-        {
-			[multicastDelegate xmppStreamDidConnect:self];
-        }
+        // Note: We're waiting for the <stream:features> now
     }
     else
     {
-        // Check for RFC compliance
-        if([self serverXmppStreamVersionNumber] >= 1.0)
-        {
-            // Update state - we're now onto stream negotiations
-            state = STATE_NEGOTIATING;
-            
-            // Note: We're waiting for the <stream:features> now
-        }
-        else
-        {
-            // The server isn't RFC comliant, and won't be sending any stream features.
-            
-            // We would still like to know what authentication features it supports though,
-            // so we'll use the jabber:iq:auth namespace, which was used prior to the RFC spec.
-            
-            // Update state - we're onto psuedo negotiation
-            state = STATE_NEGOTIATING;
-            
-            NSXMLElement *query = [NSXMLElement elementWithName:@"query" xmlns:@"jabber:iq:auth"];
-            
-            NSXMLElement *iq = [NSXMLElement elementWithName:@"iq"];
-            [iq addAttributeWithName:@"type" stringValue:@"get"];
-            [iq addChild:query];
-            
-			NSString *outgoingStr = [iq compactXMLString];
-			NSData *outgoingData = [outgoingStr dataUsingEncoding:NSUTF8StringEncoding];
-			
-            DDLogSend(@"SEND: %@", outgoingStr);
-			numberOfBytesSent += [outgoingData length];
-			
-            [asyncSocket writeData:outgoingData
-                       withTimeout:TIMEOUT_WRITE
-                               tag:TAG_WRITE_STREAM];
-            
-            // Now wait for the response IQ
-        }
+        // The server isn't RFC comliant, and won't be sending any stream features.
+        
+        // We would still like to know what authentication features it supports though,
+        // so we'll use the jabber:iq:auth namespace, which was used prior to the RFC spec.
+        
+        // Update state - we're onto psuedo negotiation
+        state = STATE_NEGOTIATING;
+        
+        NSXMLElement *query = [NSXMLElement elementWithName:@"query" xmlns:@"jabber:iq:auth"];
+        
+        NSXMLElement *iq = [NSXMLElement elementWithName:@"iq"];
+        [iq addAttributeWithName:@"type" stringValue:@"get"];
+        [iq addChild:query];
+        
+        [transport sendStanza:iq];
+        
+        // Now wait for the response IQ
     }
 }
 
-- (void)xmppParser:(XMPPParser *)sender didReadElement:(NSXMLElement *)element
+- (void)transport:(id<XMPPTransportProtocol>)sender didReceiveStanza:(NSXMLElement *)element
 {
-	DDLogRecvPost(@"RECV: %@", [element compactXMLString]);
-	
 	NSString *elementName = [element name];
-	
+
 	if([elementName isEqualToString:@"stream:error"] || [elementName isEqualToString:@"error"])
 	{
 		[multicastDelegate xmppStream:self didReceiveError:element];
 		return;
 	}
-	
+
 	if(state == STATE_NEGOTIATING)
 	{
 		// We've just read in the stream features
 		// We consider this part of the root element, so we'll add it (replacing any previously sent features)
-		[rootElement setChildren:[NSArray arrayWithObject:element]];
+		NSXMLElement *newElement = [element copy];
+		[rootElement setChildren:[NSArray arrayWithObject:newElement]];
+		[newElement release];
 		
 		// Call a method to handle any requirements set forth in the features
 		[self handleStreamFeatures];
@@ -2176,6 +1560,11 @@ enum XMPPStreamFlags
 	{
 		// The iq response from our registration request
 		[self handleRegistration:element];
+	}
+	else if (state == STATE_CUSTOM_AUTH)
+	{
+		//The customAuthTarget must respond to this selector.
+		[customAuthTarget performSelector:customHandleAuthSelector withObject:element];
 	}
 	else if(state == STATE_AUTH_1)
 	{
@@ -2267,7 +1656,7 @@ enum XMPPStreamFlags
 			[multicastDelegate xmppStream:self didReceivePresence:[XMPPPresence presenceFromElement:element]];
 		}
 		else if([self isP2P] &&
-		       ([elementName isEqualToString:@"stream:features"] || [elementName isEqualToString:@"features"]))
+                ([elementName isEqualToString:@"stream:features"] || [elementName isEqualToString:@"features"]))
 		{
 			[multicastDelegate xmppStream:self didReceiveP2PFeatures:element];
 		}
@@ -2278,78 +1667,25 @@ enum XMPPStreamFlags
 	}
 }
 
-- (void)xmppParserDidEnd:(XMPPParser *)sender
+- (void)transportDidSecure:(id<XMPPTransportProtocol>)sender
 {
-	[asyncSocket disconnect];
+    [multicastDelegate xmppStreamDidSecure:self];
+    [self restartStream];
 }
 
-- (void)xmppParser:(XMPPParser *)sender didFail:(NSError *)error
+- (void)transportWillDisconnect:(id<XMPPTransportProtocol>)sender withError:(NSError *)err
 {
-	[multicastDelegate xmppStream:self didReceiveError:error];
-	
-	[asyncSocket disconnect];
+    [multicastDelegate xmppStream:self didReceiveError:err];
 }
 
-- (void)xmppParser:(XMPPParser *)sender didParseDataOfLength:(NSUInteger)length
+- (void)transportDidDisconnect:(id<XMPPTransportProtocol>)sender
 {
-	// The chunk we read has now been fully parsed.
-	// Continue reading for XML elements.
-	if(state == STATE_OPENING)
-	{
-		[asyncSocket readDataWithTimeout:TIMEOUT_READ_START tag:TAG_READ_START];
-	}
-	else
-	{
-		[asyncSocket readDataWithTimeout:TIMEOUT_READ_STREAM tag:TAG_READ_STREAM];
-	}
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#pragma mark Keep Alive
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-- (void)setKeepAliveInterval:(NSTimeInterval)interval
-{
-	if (keepAliveInterval != interval)
-	{
-		keepAliveInterval = interval;
-		
-		[self setupKeepAliveTimer];
-	}
-}
-
-- (void)setupKeepAliveTimer
-{
-	[keepAliveTimer invalidate];
-	[keepAliveTimer release];
-	keepAliveTimer = nil;
-	
-	if (state == STATE_CONNECTED)
-	{
-		if (keepAliveInterval > 0)
-		{
-			keepAliveTimer = [[NSTimer scheduledTimerWithTimeInterval:keepAliveInterval
-															   target:self
-															 selector:@selector(keepAlive:)
-															 userInfo:nil
-															  repeats:YES] retain];
-		}
-	}
-}
-
-- (void)keepAlive:(NSTimer *)aTimer
-{
-  DDLogTrace();
-	if (state == STATE_CONNECTED)
-	{
-		NSData *outgoingData = [@" " dataUsingEncoding:NSUTF8StringEncoding];
-		
-		numberOfBytesSent += [outgoingData length];
-		
-		[asyncSocket writeData:outgoingData
-		           withTimeout:TIMEOUT_WRITE
-		                   tag:TAG_WRITE_STREAM];
-	}
+    state = STATE_DISCONNECTED;
+    
+    [rootElement release];
+    rootElement = nil;
+    
+    [multicastDelegate xmppStreamDidDisconnect:self];
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2507,6 +1843,24 @@ enum XMPPStreamFlags
 	}
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#pragma mark Pause-Resume XmppStream
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+- (void)pause
+{
+  self.paused = true;
+  [transport removeDelegate:self];
+  [transport pause];
+}
+
+- (void)resume 
+{
+  [transport addDelegate:self];
+  [transport resume];
+  self.paused = false;
+}
+
 @end
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2525,10 +1879,7 @@ enum XMPPStreamFlags
 		
 		NSString *authStr = [[[NSString alloc] initWithData:decodedData encoding:NSUTF8StringEncoding] autorelease];
 		
-		if (DEBUG_RECV_PRE || DEBUG_RECV_POST)
-		{
-			NSLog(@"decoded challenge: %@", authStr);
-		}
+        DDLogInfo(@"decoded challenge: %@", authStr);
 		
 		// Extract all the key=value pairs, and put them in a dictionary for easy lookup
 		NSMutableDictionary *auth = [NSMutableDictionary dictionaryWithCapacity:5];
@@ -2669,7 +2020,7 @@ enum XMPPStreamFlags
 	[buffer appendFormat:@"response=%@,", [self response]];
 	[buffer appendFormat:@"charset=utf-8"];
 	
-	DDLogSend(@"decoded response: %@", buffer);
+	DDLogInfo(@"decoded response: %@", buffer);
 	
 	NSData *utf8data = [buffer dataUsingEncoding:NSUTF8StringEncoding];
 	

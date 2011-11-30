@@ -4,6 +4,8 @@
 
 #import "XMPP.h"
 #import "XMPPRosterCoreDataStorage.h"
+#import "XMPPSocketTransport.h"
+#import "BoshTransport.h"
 #import "XMPPvCardAvatarModule.h"
 #import "XMPPvCardCoreDataStorageController.h"
 #import "XMPPvCardTempModule.h"
@@ -151,10 +153,12 @@
 }
 
 - (void)setupStream {
-  xmppStream = [[XMPPStream alloc] init];
+	transport = [[BoshTransport alloc] initWithUrl:@"http://localhost:5280/http-bind" forDomain:@"directi.com"];
+    xmppStream = [[XMPPStream alloc] initWithTransport:transport];
 	xmppRosterStorage = [[XMPPRosterCoreDataStorage alloc] init];
 	xmppRoster = [[XMPPRoster alloc] initWithStream:xmppStream rosterStorage:xmppRosterStorage];
 	
+    [transport addDelegate:self];
 	[xmppStream addDelegate:self];
 	[xmppRoster addDelegate:self];
 	
@@ -174,7 +178,7 @@
 #pragma mark XMPPStream Delegate
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-- (void)xmppStream:(XMPPStream *)sender willSecureWithSettings:(NSMutableDictionary *)settings
+- (void)transport:(XMPPSocketTransport *)sender willSecureWithSettings:(NSMutableDictionary *)settings
 {
 	NSLog(@"---------- xmppStream:willSecureWithSettings: ----------");
 	
@@ -196,10 +200,10 @@
 		
 		NSString *expectedCertName = nil;
 		
-		NSString *serverDomain = xmppStream.hostName;
-		NSString *virtualDomain = [xmppStream.myJID domain];
+		NSString *serverDomain = @"saf";
+		NSString *virtualDomain = [transport.myJID domain];
 		
-		if ([serverDomain isEqualToString:@"talk.google.com"])
+		if ([serverDomain hasPrefix:@"talk"] && [serverDomain hasSuffix:@"google.com"])
 		{
 			if ([virtualDomain isEqualToString:@"gmail.com"])
 			{
