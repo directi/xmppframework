@@ -1127,6 +1127,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     DDLogWarn(@"Cancelling pending request with rid = %qi", [self getRidFromRequest:request]);
     [request clearDelegatesAndCancel];
   }
+  [pendingHTTPRequests_ removeAllObjects];
 }
 
 - (void)resume
