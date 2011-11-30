@@ -261,6 +261,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 @synthesize requests;
 @synthesize disconnectError = disconnectError_;
 @synthesize pendingHTTPRequests = pendingHTTPRequests_;
+@synthesize paused;
 
 #define BoshVersion @"1.6"
 
@@ -392,6 +393,11 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 - (BOOL)connect:(NSError **)error
 {
+    if (self.isPaused)
+    {
+      DDLogError(@"BOSH: Need to be unpaused to connect the stream.");
+      return FALSE;
+    }
     DDLogInfo(@"BOSH: Connecting to %@ with jid = %@", self.domain, [self.myJID bare]);
     
     if(![self canConnect]) return NO;
@@ -402,6 +408,11 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 - (void)restartStream
 {
+    if (self.isPaused)
+    {
+      DDLogError(@"BOSH: Need to be unpaused to restart the stream.");
+      return;
+    }
     if(![self isConnected])
     {
         DDLogError(@"BOSH: Need to be connected to restart the stream.");
@@ -428,6 +439,11 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 - (BOOL)sendStanza:(NSXMLElement *)stanza
 {
+    if (self.isPaused)
+    {
+      DDLogError(@"BOSH: Need to unpaused to be able to send stanza");
+      return NO;
+    }
     if (![self isConnected])
     {
         DDLogError(@"BOSH: Need to be connected to be able to send stanza");
@@ -1100,5 +1116,25 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 		[self trySendingStanzas];
 	}
 }
+
+- (void)pause
+{
+  self.paused = true;
+
+  for (ASIHTTPRequest *request in pendingHTTPRequests_) 
+  {
+    NSLog(@"---------- \npending request cookies: \n\t requestCookies: %@, \n responseCookies: %@, \n sessionCookies: %@ ",request.requestCookies, request.responseCookies, [ASIHTTPRequest sessionCookies]);
+    DDLogWarn(@"Cancelling pending request with rid = %qi", [self getRidFromRequest:request]);
+    [request clearDelegatesAndCancel];
+  }
+}
+
+- (void)resume
+{
+  self.paused = false;
+  
+  [self resendRemainingRequests];
+}
+
 
 @end

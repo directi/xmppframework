@@ -158,6 +158,8 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 @property (nonatomic) SEL customAuthSelector;
 @property (nonatomic) SEL customHandleAuthSelector;
 
+@property (nonatomic, getter = isPaused) BOOL paused;
+
 @property (nonatomic, retain) id<XMPPTransportProtocol> transport;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -416,6 +418,13 @@ typedef enum XMPPStreamErrorCode XMPPStreamErrorCode;
 **/
 - (void)autoAddDelegate:(id)delegate toModulesOfClass:(Class)aClass;
 - (void)removeAutoDelegate:(id)delegate fromModulesOfClass:(Class)aClass;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#pragma mark Pause-Resume XmppStream
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+- (void)pause;
+- (void)resume;
 
 @end
 

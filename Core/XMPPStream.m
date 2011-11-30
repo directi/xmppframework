@@ -82,6 +82,8 @@ enum XMPPStreamFlags
 @synthesize customAuthSelector;
 @synthesize customHandleAuthSelector;
 
+@synthesize paused;
+
 - (void)setTransport:(id<XMPPTransportProtocol>)givenTransport
 {
 	transport = [givenTransport retain];
@@ -284,6 +286,17 @@ enum XMPPStreamFlags
 
 - (BOOL)connect:(NSError **)errPtr
 {
+  if (self.isPaused) 
+  {
+		if (errPtr)
+		{
+			NSString *errMsg = @"Attempting to connect while xmppStream paused.";
+			NSDictionary *info = [NSDictionary dictionaryWithObject:errMsg forKey:NSLocalizedDescriptionKey];
+			
+			*errPtr = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
+		}
+		return NO;    
+  }
 	if (state > STATE_DISCONNECTED)
 	{
 		if (errPtr)
@@ -404,6 +417,18 @@ enum XMPPStreamFlags
 
 - (BOOL)secureConnection:(NSError **)errPtr
 {
+  if (self.isPaused) 
+  {
+		if (errPtr)
+		{
+			NSString *errMsg = @"Attempting to secure connection while xmppStream is paused.";
+			NSDictionary *info = [NSDictionary dictionaryWithObject:errMsg forKey:NSLocalizedDescriptionKey];
+			
+			*errPtr = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
+		}
+		return NO;    
+  }
+
 	if (state != STATE_CONNECTED)
 	{
 		if (errPtr)
@@ -471,6 +496,18 @@ enum XMPPStreamFlags
 **/
 - (BOOL)registerWithPassword:(NSString *)password error:(NSError **)errPtr
 {
+  if (self.isPaused) 
+  {
+		if (errPtr)
+		{
+			NSString *errMsg = @"Attempting to register while xmppStream paused.";
+			NSDictionary *info = [NSDictionary dictionaryWithObject:errMsg forKey:NSLocalizedDescriptionKey];
+			
+			*errPtr = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
+		}
+		return NO;    
+  }
+
 	if (state != STATE_CONNECTED)
 	{
 		if (errPtr)
@@ -691,6 +728,18 @@ enum XMPPStreamFlags
 **/
 - (BOOL)authenticateWithPassword:(NSString *)password error:(NSError **)errPtr
 {
+  if (self.isPaused) 
+  {
+		if (errPtr)
+		{
+			NSString *errMsg = @"Attempting to authenticate while xmppStream paused.";
+			NSDictionary *info = [NSDictionary dictionaryWithObject:errMsg forKey:NSLocalizedDescriptionKey];
+			
+			*errPtr = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
+		}
+		return NO;    
+  }
+
 	if (state != STATE_CONNECTED)
 	{
 		if (errPtr)
@@ -802,6 +851,18 @@ enum XMPPStreamFlags
  **/
 - (BOOL)authenticateAnonymously:(NSError **)errPtr
 {
+  if (self.isPaused) 
+  {
+		if (errPtr)
+		{
+			NSString *errMsg = @"Attempting to connect while xmppStream paused.";
+			NSDictionary *info = [NSDictionary dictionaryWithObject:errMsg forKey:NSLocalizedDescriptionKey];
+			
+			*errPtr = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
+		}
+		return NO;    
+  }
+
 	if (state != STATE_CONNECTED)
 	{
 		if (errPtr)
@@ -855,6 +916,11 @@ enum XMPPStreamFlags
 **/
 - (BOOL)startCustomAuthenticationWithTarget:(id)target authSelector:(SEL)authSelector handleAuthSelector:(SEL)handleAuthSelector
 {
+  if (self.isPaused) 
+  {
+		return NO;    
+  }
+
 	if (state != STATE_CONNECTED)
 	{
 		return NO;
@@ -972,7 +1038,7 @@ enum XMPPStreamFlags
 **/
 - (void)sendElement:(NSXMLElement *)element
 {
-	if (state == STATE_CONNECTED || state == STATE_CUSTOM_AUTH)
+	if ((state == STATE_CONNECTED || state == STATE_CUSTOM_AUTH) && !self.isPaused )
 	{
 		[self sendElement:element withTag:0];
 	}
@@ -987,7 +1053,7 @@ enum XMPPStreamFlags
 **/
 - (void)sendElement:(NSXMLElement *)element andNotifyMe:(UInt16)tag
 {
-	if (state == STATE_CONNECTED)
+	if (state == STATE_CONNECTED && !self.isPaused)
 	{
 		[self sendElement:element withTag:tag];
 	}
@@ -1775,6 +1841,24 @@ enum XMPPStreamFlags
 			[delegates removeDelegate:delegate];
 		}
 	}
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#pragma mark Pause-Resume XmppStream
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+- (void)pause
+{
+  self.paused = true;
+  [transport removeDelegate:self];
+  [transport pause];
+}
+
+- (void)resume 
+{
+  [transport addDelegate:self];
+  [transport resume];
+  self.paused = false;
 }
 
 @end

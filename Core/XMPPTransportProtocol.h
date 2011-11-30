@@ -53,6 +53,9 @@
 - (void)setRemoteJID:(XMPPJID *)jid;
 - (BOOL)isP2PRecipient;
 
+- (void)pause;
+- (void)resume;
+
 @end
 
 

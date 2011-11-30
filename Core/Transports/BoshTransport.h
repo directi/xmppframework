@@ -121,6 +121,8 @@ typedef enum {
 @property(copy) NSURL *url;
 @property(readonly) NSError *disconnectError;
 
+@property(nonatomic, getter = isPaused) BOOL paused;
+
 /* init Methods */
 - (id)initWithUrl:(NSURL *)url forDomain:(NSString *)domain;
 - (id)initWithUrl:(NSURL *)url
@@ -156,5 +158,8 @@ typedef enum {
 - (float)serverXmppStreamVersionNumber;
 - (BOOL)sendStanza:(NSXMLElement *)stanza;
 - (BOOL)sendStanzaWithString:(NSString *)string;
-- (void)resendRemainingRequests;
+
+- (void)pause;
+- (void)resume;
+
 @end
