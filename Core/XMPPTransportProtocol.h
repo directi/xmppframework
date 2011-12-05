@@ -72,7 +72,6 @@
 - (void)transport:(id <XMPPTransportProtocol>)transport willSendStanza:(NSXMLElement *)stanza;
 - (void)transport:(id <XMPPTransportProtocol>)transport didSendStanza:(NSXMLElement *)stanza;
 - (void)transport:(id <XMPPTransportProtocol>)transport didReceiveStanza:(NSXMLElement *)stanza;
-- (void)transportDidReceiveEmptyPacket:(id <XMPPTransportProtocol>)transport;
 - (void)transport:(id <XMPPTransportProtocol>)transport didReceiveError:(id)error;
 - (void)transportDidSecure:(id <XMPPTransportProtocol>)transport;
 
