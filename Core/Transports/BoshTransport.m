@@ -84,6 +84,29 @@
     [response_ release];
     [super dealloc];
 }
+
+#define kPairRequest	@"request"
+#define kPairResponse	@"response"
+
+- (void)encodeWithCoder: (NSCoder *)coder
+{
+	[coder encodeObject:self.request	forKey:kPairRequest];
+	[coder encodeObject:self.response forKey:kPairResponse];
+}
+
+- (id)initWithCoder: (NSCoder *)coder
+{
+	self = [super init];
+	if (self && coder)
+	{
+		self.request  = [coder decodeObjectForKey:kPairRequest ];
+		self.response = [coder decodeObjectForKey:kPairResponse];
+	}
+	
+	return self;
+}
+
+
 @end
 
 #pragma -
@@ -140,6 +163,40 @@
     [receivedRids release];
     [super dealloc];
 }
+
+#define kMaxRidReceived	@"maxRidReceived"
+#define kMaxRidSent		@"maxRidSent"
+#define kReceivedRids	@"receivedRids"
+#define kWindowSize		@"windowSize"
+
+- (void)encodeWithCoder: (NSCoder *)coder
+{
+	[coder encodeInt64:maxRidReceived forKey:kMaxRidReceived];
+	[coder encodeInt64:maxRidSent forKey:kMaxRidSent];
+	[coder encodeObject:receivedRids forKey:kReceivedRids];
+	[coder encodeInt:self.windowSize forKey:kWindowSize];
+}
+
+- (void)commonInitWithCoder:(NSCoder *)coder
+{
+	maxRidSent		= [coder decodeInt64ForKey:kMaxRidSent];
+	maxRidReceived  = [coder decodeInt64ForKey:kMaxRidReceived];
+	receivedRids	= [[coder decodeObjectForKey:kReceivedRids] retain];
+	self.windowSize = [coder decodeIntForKey:kWindowSize];
+}
+
+- (id)initWithCoder: (NSCoder *)coder
+{
+	self = [super init];
+	if (self && coder)
+	{
+		[self commonInitWithCoder:coder];
+	}
+	
+	return self;
+}
+
+
 @end
 
 static const int RETRY_COUNT_LIMIT = 25;
@@ -204,6 +261,9 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 @synthesize requests;
 @synthesize disconnectError = disconnectError_;
 @synthesize pendingHTTPRequests = pendingHTTPRequests_;
+@synthesize paused;
+
+#define BoshVersion @"1.6"
 
 #pragma mark -
 #pragma mark Private Accessor Method Implementation
@@ -276,7 +336,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     self = [super init];
     if(self)
     {		
-        boshVersion = @"1.6";
+        boshVersion = BoshVersion;
         lang_ = @"en";
         wait_ = 60.0;
         hold_ = 1;
@@ -333,6 +393,11 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 - (BOOL)connect:(NSError **)error
 {
+    if (self.isPaused)
+    {
+      DDLogError(@"BOSH: Need to be unpaused to connect the stream.");
+      return FALSE;
+    }
     DDLogInfo(@"BOSH: Connecting to %@ with jid = %@", self.domain, [self.myJID bare]);
     
     if(![self canConnect]) return NO;
@@ -343,6 +408,11 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 - (void)restartStream
 {
+    if (self.isPaused)
+    {
+      DDLogError(@"BOSH: Need to be unpaused to restart the stream.");
+      return;
+    }
     if(![self isConnected])
     {
         DDLogError(@"BOSH: Need to be connected to restart the stream.");
@@ -369,6 +439,11 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 - (BOOL)sendStanza:(NSXMLElement *)stanza
 {
+    if (self.isPaused)
+    {
+      DDLogError(@"BOSH: Need to unpaused to be able to send stanza");
+      return NO;
+    }
     if (![self isConnected])
     {
         DDLogError(@"BOSH: Need to be connected to be able to send stanza");
@@ -869,6 +944,8 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 - (void)dealloc
 {
+    [lang_ release];
+  
     [pendingHTTPRequests_ removeAllObjects];
     [pendingHTTPRequests_ release];
     
@@ -885,4 +962,174 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     [requestResponsePairs release];
     [super dealloc];
 }
+
+#pragma mark Protocol NSCoding Method Implementation
+
+#define kNextRidToSend		@"nextRidToSend"
+#define kMaxRidProcessed	@"maxRidProcessed"
+
+#define kPendingXMPPStanza	@"pendingXMPPStanzas"
+#define kBoshWindowManager	@"boshWindowManager"
+#define kState				@"state"
+
+#define kRequestResponsePairs @"requestResponsePairs"
+
+#define kDisconnectError_	@"disconnectError_"
+
+#define kRetryCounter		@"retryCounter"
+#define kNextRequestDelay	@"nextRequestDelay"
+
+#define kMyJID			@"myJID"
+#define kWait			@"wait"
+#define kHold			@"hold"
+#define kLang			@"lang"
+#define kDomain			@"domain"
+#define kRouteProtocol	@"routeProtocol"
+#define kHost			@"host"
+#define kPort			@"port"
+#define kInactivity		@"inactivity"
+#define kSecure			@"secure"
+#define kRequest		@"requests"
+#define kAuthId			@"authid"
+#define kSid			@"sid"
+#define kUrl			@"url"
+#define kPersistedCookies  @"persistedCookies"
+
+
+- (void)encodeWithCoder: (NSCoder *)coder
+{
+	[coder encodeInt64:nextRidToSend forKey:kNextRidToSend];
+	[coder encodeInt64:maxRidProcessed forKey:kMaxRidProcessed];
+	
+	[coder encodeObject:pendingXMPPStanzas forKey:kPendingXMPPStanza];
+	[coder encodeObject:boshWindowManager forKey:kBoshWindowManager] ;
+	[coder encodeInt:state forKey:kState];
+	
+	[coder encodeObject:requestResponsePairs forKey:kRequestResponsePairs];
+	
+	[coder encodeObject:disconnectError_ forKey:kDisconnectError_];
+	
+	[coder encodeInt:retryCounter  forKey:kRetryCounter];
+	[coder encodeDouble:nextRequestDelay forKey:kNextRequestDelay];
+	
+	[coder encodeObject:self.myJID forKey:kMyJID];
+	[coder encodeInt:self.wait forKey:kWait];
+	[coder encodeInt:self.hold forKey:kHold];
+	[coder encodeObject:self.lang forKey:kLang];
+	[coder encodeObject:self.domain forKey:kDomain];
+	[coder encodeObject:self.routeProtocol forKey:kRouteProtocol];
+	[coder encodeObject:self.host forKey:kHost];
+	[coder encodeInt:self.port forKey:kPort];
+	[coder encodeInt:self.inactivity forKey:kInactivity];
+	[coder encodeBool:self.secure forKey:kSecure];
+	[coder encodeInt:self.requests forKey:kRequest];
+	[coder encodeObject:self.authid forKey:kAuthId];
+	[coder encodeObject:self.sid forKey:kSid];
+	[coder encodeObject:self.url forKey:kUrl];
+
+  DDLogRecvPre(@"BOSH: saving all Cookies = %@", [[NSHTTPCookieStorage sharedHTTPCookieStorage] cookies]);
+  [coder encodeObject:[[NSHTTPCookieStorage sharedHTTPCookieStorage] cookies] forKey:kPersistedCookies];
+}
+
+- (void)commonInitWithCoder:(NSCoder *)coder
+{
+	boshVersion = BoshVersion;
+	
+	nextRidToSend = [coder decodeInt64ForKey:kNextRidToSend];
+	maxRidProcessed = [coder decodeInt64ForKey:kMaxRidProcessed];
+	
+	pendingXMPPStanzas =[[coder decodeObjectForKey:kPendingXMPPStanza] retain];
+	boshWindowManager = [[coder decodeObjectForKey:kBoshWindowManager] retain];
+	state = [coder decodeIntForKey:kState];
+	
+	requestResponsePairs = [[coder decodeObjectForKey:kRequestResponsePairs] retain];
+	
+	disconnectError_ = [[coder decodeObjectForKey:kDisconnectError_] retain];
+	
+	retryCounter = [coder decodeIntForKey:kRetryCounter];
+	nextRequestDelay= [coder decodeDoubleForKey:kNextRequestDelay];
+	
+	
+	self.myJID= [coder decodeObjectForKey:kMyJID];
+	self.wait= [coder decodeIntForKey:kWait];
+	self.hold= [coder decodeIntForKey:kHold];
+	self.lang= [coder decodeObjectForKey:kLang];
+	self.domain= [coder decodeObjectForKey:kDomain];
+	self.routeProtocol= [coder decodeObjectForKey:kRouteProtocol];
+	self.host= [coder decodeObjectForKey:kHost];
+	self.port= [coder decodeIntForKey:kPort];
+	self.inactivity= [coder decodeIntForKey:kInactivity];
+	secure = [coder decodeBoolForKey:kSecure];
+	requests = [coder decodeIntForKey:kRequest];
+	self.authid= [coder decodeObjectForKey:kAuthId];
+	self.sid= [coder decodeObjectForKey:kSid];
+	self.url= [coder decodeObjectForKey:kUrl];
+	
+  DDLogRecvPre(@"BOSH: restoring sessionCookies = %@", [coder decodeObjectForKey:kPersistedCookies]);
+  
+  for ( NSHTTPCookie *cookie in [coder decodeObjectForKey:kPersistedCookies] ) 
+  {
+    [[NSHTTPCookieStorage sharedHTTPCookieStorage] setCookie:cookie];
+  }
+  
+	multicastDelegate = [[MulticastDelegate alloc] init];
+	
+}
+
+- (id)initWithCoder: (NSCoder *)coder
+{
+	self = [super init];
+	if (self && coder)
+	{
+		[self commonInitWithCoder:coder];
+	}
+	return self;
+}
+
+/*
+ * This method to be called after the uncompression of the transport object.
+ * It looks for packets in requestResponsePairs without a response and sends them.
+ */
+- (void)resendRemainingRequests
+{
+	BOOL didSentSomething = false;
+	for ( NSNumber *ridNumber in [requestResponsePairs allKeys ])
+	{ 
+		long long rid = [ridNumber longLongValue];
+		RequestResponsePair *pair = [requestResponsePairs objectForLongLongKey:rid];
+		if ( !pair.response )
+		{
+			didSentSomething = true;
+			[self sendHTTPRequestWithBody:pair.request rid:rid];
+		}
+	}
+	
+	if ( !didSentSomething )
+	{
+		// if we havent sent anything, send an empty packet.
+		[self trySendingStanzas];
+	}
+}
+
+- (void)pause
+{
+  self.paused = true;
+
+  for (ASIHTTPRequest *request in pendingHTTPRequests_) 
+  {
+    NSLog(@"---------- \npending request cookies: \n\t requestCookies: %@, \n responseCookies: %@, \n sessionCookies: %@ ",request.requestCookies, request.responseCookies, [ASIHTTPRequest sessionCookies]);
+    DDLogWarn(@"Cancelling pending request with rid = %qi", [self getRidFromRequest:request]);
+    [request clearDelegatesAndCancel];
+  }
+  [pendingHTTPRequests_ removeAllObjects];
+}
+
+- (void)resume
+{
+  self.paused = false;
+  
+  [self resendRemainingRequests];
+}
+
+
 @end
