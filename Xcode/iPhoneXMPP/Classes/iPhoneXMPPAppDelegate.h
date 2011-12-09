@@ -1,5 +1,6 @@
 #import <UIKit/UIKit.h>
 #import <CoreData/CoreData.h>
+#import "XMPPSocketTransport.h"
 
 @class SettingsViewController;
 @class XMPPStream;
@@ -8,9 +9,9 @@
 @class XMPPvCardAvatarModule;
 @class XMPPvCardTempModule;
 
-
 @interface iPhoneXMPPAppDelegate : NSObject <UIApplicationDelegate>
 {
+    id<XMPPTransportProtocol> transport;
 	XMPPStream *xmppStream;
 	XMPPRoster *xmppRoster;
 	XMPPRosterCoreDataStorage *xmppRosterStorage;

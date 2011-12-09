@@ -224,10 +224,6 @@ enum XMPPRosterFlags
 	[response addAttributeWithName:@"type" stringValue:@"subscribed"];
 	
 	[xmppStream sendElement:response];
-	
-	// Add user to our roster
-	
-	[self addBuddy:jid withNickname:nil];
 }
 
 - (void)rejectBuddyRequest:(XMPPJID *)jid
@@ -380,7 +376,7 @@ enum XMPPRosterFlags
 	{
 		if (![self hasRoster])
 		{
-      [self performSelectorInBackground:@selector(updateRosterWithQuery:) withObject:query];
+      [self updateRosterWithQuery:query];
 		} else {
             NSArray *items = [query elementsForName:@"item"];
             for (NSXMLElement *item in items)
