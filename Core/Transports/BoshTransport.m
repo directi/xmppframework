@@ -356,7 +356,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 - (void)disconnect
 {
-    if(![self isConnected])
+    if(state != CONNECTED && state != CONNECTING )
     {
         DDLogError(@"BOSH: Need to be connected to disconnect");
         return;
@@ -591,9 +591,11 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     /* Not doing anything with namespaces right now - because chirkut doesn't send it */
     //NSArray *responseNamespaces = [rootElement namespaces];
     
+  if ( state == CONNECTING ) {
     state = CONNECTED;
     [multicastDelegate transportDidConnect:self];
     [multicastDelegate transportDidStartNegotiation:self];
+  }
 }
 
 - (void)handleDisconnection
