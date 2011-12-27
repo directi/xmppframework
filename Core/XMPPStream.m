@@ -184,7 +184,7 @@ enum XMPPStreamFlags
 //#define @"SEL customAuthSelector"
 //#define @"SEL customHandleAuthSelector"
 
-- (void)encodeWithCoder: (NSCoder *)coder
+- (void)encodeWithCoder:(NSCoder *)coder
 {
 	[coder encodeInt:state forKey:kState];
 	[coder encodeInt:flags forKey:kFlags];
@@ -216,7 +216,7 @@ enum XMPPStreamFlags
 	autoDelegateDict  = [[NSMutableDictionary alloc] init];
 }
 
-- (id)initWithCoder: (NSCoder *)coder
+- (id)initWithCoder:(NSCoder *)coder
 {
 	self = [super init];
 	if (self && coder)
