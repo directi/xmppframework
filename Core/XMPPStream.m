@@ -1854,8 +1854,7 @@ enum XMPPStreamFlags
 - (void)pause
 {
   if ([transport supportsPause]) {
-    isPaused = true;
-    [transport removeDelegate:self];
+    isPaused = YES;
     [transport pause];
   }
 }
@@ -1863,9 +1862,8 @@ enum XMPPStreamFlags
 - (void)resume 
 {
   if ([transport supportsPause]) {
-    [transport addDelegate:self];
     [transport resume];
-    isPaused = false;
+    isPaused = NO;
   }
 }
 
