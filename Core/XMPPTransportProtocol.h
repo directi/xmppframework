@@ -43,6 +43,7 @@
 - (float)serverXmppStreamVersionNumber;
 - (BOOL)sendStanza:(NSXMLElement *)stanza;
 - (BOOL)sendStanzaWithString:(NSString *)string;
+- (BOOL)supportsPause;
 
 @optional
 - (void)secure;
@@ -53,6 +54,7 @@
 - (void)setRemoteJID:(XMPPJID *)jid;
 - (BOOL)isP2PRecipient;
 
+- (BOOL)isPaused;
 - (void)pause;
 - (void)resume;
 

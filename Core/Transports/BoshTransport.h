@@ -121,7 +121,7 @@ typedef enum {
 @property(copy) NSURL *url;
 @property(readonly) NSError *disconnectError;
 
-@property(nonatomic, getter = isPaused) BOOL paused;
+@property(readonly) BOOL isPaused;
 
 /* init Methods */
 - (id)initWithUrl:(NSURL *)url forDomain:(NSString *)domain;

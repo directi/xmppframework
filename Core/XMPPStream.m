@@ -82,7 +82,7 @@ enum XMPPStreamFlags
 @synthesize customAuthSelector;
 @synthesize customHandleAuthSelector;
 
-@synthesize paused;
+@synthesize isPaused;
 
 - (void)setTransport:(id<XMPPTransportProtocol>)givenTransport
 {
@@ -1847,18 +1847,26 @@ enum XMPPStreamFlags
 #pragma mark Pause-Resume XmppStream
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+- (BOOL)supportsPause {
+  return [transport supportsPause];
+}
+
 - (void)pause
 {
-  self.paused = true;
-  [transport removeDelegate:self];
-  [transport pause];
+  if ([transport supportsPause]) {
+    isPaused = true;
+    [transport removeDelegate:self];
+    [transport pause];
+  }
 }
 
 - (void)resume 
 {
-  [transport addDelegate:self];
-  [transport resume];
-  self.paused = false;
+  if ([transport supportsPause]) {
+    [transport addDelegate:self];
+    [transport resume];
+    isPaused = false;
+  }
 }
 
 @end

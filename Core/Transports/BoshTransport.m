@@ -261,7 +261,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 @synthesize requests;
 @synthesize disconnectError = disconnectError_;
 @synthesize pendingHTTPRequests = pendingHTTPRequests_;
-@synthesize paused;
+@synthesize isPaused;
 
 #define BoshVersion @"1.6"
 
@@ -1111,9 +1111,13 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 	}
 }
 
+- (BOOL)supportsPause {
+  return YES;
+}
+
 - (void)pause
 {
-  self.paused = true;
+  isPaused = true;
 
   for (ASIHTTPRequest *request in pendingHTTPRequests_) 
   {
@@ -1126,7 +1130,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 - (void)resume
 {
-  self.paused = false;
+  isPaused = false;
   
   [self resendRemainingRequests];
 }
