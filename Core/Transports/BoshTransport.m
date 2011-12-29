@@ -1070,6 +1070,8 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 	self.authid= [coder decodeObjectForKey:kAuthId];
 	self.sid= [coder decodeObjectForKey:kSid];
 	self.url= [coder decodeObjectForKey:kUrl];
+
+  pendingHTTPRequests_ = [[NSMutableSet alloc] initWithCapacity:2];
 	
   DDLogRecvPre(@"BOSH: restoring sessionCookies = %@", [coder decodeObjectForKey:kPersistedCookies]);
   
