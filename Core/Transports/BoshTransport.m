@@ -1070,16 +1070,14 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 	self.authid= [coder decodeObjectForKey:kAuthId];
 	self.sid= [coder decodeObjectForKey:kSid];
 	self.url= [coder decodeObjectForKey:kUrl];
-
-  pendingHTTPRequests_ = [[NSMutableSet alloc] initWithCapacity:2];
 	
-  DDLogRecvPre(@"BOSH: restoring sessionCookies = %@", [coder decodeObjectForKey:kPersistedCookies]);
-  
-  for ( NSHTTPCookie *cookie in [coder decodeObjectForKey:kPersistedCookies] ) 
-  {
-    [[NSHTTPCookieStorage sharedHTTPCookieStorage] setCookie:cookie];
-  }
-  
+	pendingHTTPRequests_ = [[NSMutableSet alloc] initWithCapacity:2];
+
+	for ( NSHTTPCookie *cookie in [coder decodeObjectForKey:kPersistedCookies] ) 
+	{
+		[[NSHTTPCookieStorage sharedHTTPCookieStorage] setCookie:cookie];
+	}
+
 	multicastDelegate = [[MulticastDelegate alloc] init];
 	
 }
@@ -1120,26 +1118,26 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 }
 
 - (BOOL)supportsPause {
-  return YES;
+	return YES;
 }
 
 - (void)pause
 {
-  isPaused = true;
-
-  for (ASIHTTPRequest *request in pendingHTTPRequests_) 
-  {
-    DDLogWarn(@"Cancelling pending request with rid = %qi", [self getRidFromRequest:request]);
-    [request clearDelegatesAndCancel];
-  }
-  [pendingHTTPRequests_ removeAllObjects];
+	isPaused = true;
+	
+	for (ASIHTTPRequest *request in pendingHTTPRequests_) 
+	{
+		DDLogWarn(@"Cancelling pending request with rid = %qi", [self getRidFromRequest:request]);
+		[request clearDelegatesAndCancel];
+	}
+	[pendingHTTPRequests_ removeAllObjects];
 }
 
 - (void)resume
 {
-  isPaused = false;
-  
-  [self resendRemainingRequests];
+	isPaused = false;
+	
+	[self resendRemainingRequests];
 }
 
 
