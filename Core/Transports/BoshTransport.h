@@ -51,7 +51,7 @@ typedef enum {
     TERMINATING = 4
 } BoshTransportState;
 
-@interface RequestResponsePair : NSObject
+@interface RequestResponsePair : NSObject <NSCoding> 
 @property (nonatomic, retain) NSXMLElement *request;
 @property (nonatomic, retain) NSXMLElement *response;
 - (id)initWithRequest:(NSXMLElement *)request response:(NSXMLElement *)response;
@@ -63,7 +63,7 @@ typedef enum {
 /**
  * Handles the in-order processing of responses.
  **/
-@interface BoshWindowManager : NSObject {
+@interface BoshWindowManager : NSObject <NSCoding>  {
     long long maxRidReceived; // all rid value less than equal to maxRidReceived are processed.
     long long maxRidSent;
     NSMutableSet *receivedRids;
@@ -83,7 +83,7 @@ typedef enum {
 
 #pragma mark -
 
-@interface BoshTransport : NSObject <XMPPTransportProtocol> {
+@interface BoshTransport : NSObject <XMPPTransportProtocol, NSCoding> {
     NSString *boshVersion;
 
     long long nextRidToSend;
@@ -100,6 +100,9 @@ typedef enum {
     
     int retryCounter;
     NSTimeInterval nextRequestDelay;
+  
+    BOOL secure;
+  unsigned int requests;
 }
 
 @property(retain) XMPPJID *myJID;
@@ -117,6 +120,8 @@ typedef enum {
 @property(copy) NSString *sid;
 @property(copy) NSURL *url;
 @property(readonly) NSError *disconnectError;
+
+@property(readonly) BOOL isPaused;
 
 /* init Methods */
 - (id)initWithUrl:(NSURL *)url forDomain:(NSString *)domain;
@@ -153,4 +158,8 @@ typedef enum {
 - (float)serverXmppStreamVersionNumber;
 - (BOOL)sendStanza:(NSXMLElement *)stanza;
 - (BOOL)sendStanzaWithString:(NSString *)string;
+
+- (void)pause;
+- (void)resume;
+
 @end

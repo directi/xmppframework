@@ -514,4 +514,8 @@
 	[self tryNextSrvResult];
 }
 
+- (BOOL)supportsPause {
+  return NO;
+}
+
 @end

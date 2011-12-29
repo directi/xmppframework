@@ -31,7 +31,7 @@
 
 @class XMPPJID;
 
-@protocol XMPPTransportProtocol
+@protocol XMPPTransportProtocol <NSObject>
 
 - (void)addDelegate:(id)delegate;
 - (void)removeDelegate:(id)delegate;
@@ -43,6 +43,7 @@
 - (float)serverXmppStreamVersionNumber;
 - (BOOL)sendStanza:(NSXMLElement *)stanza;
 - (BOOL)sendStanzaWithString:(NSString *)string;
+- (BOOL)supportsPause;
 
 @optional
 - (void)secure;
@@ -52,6 +53,10 @@
 - (XMPPJID *)remoteJID;
 - (void)setRemoteJID:(XMPPJID *)jid;
 - (BOOL)isP2PRecipient;
+
+- (BOOL)isPaused;
+- (void)pause;
+- (void)resume;
 
 @end
 
