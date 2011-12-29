@@ -466,26 +466,25 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     [requestPayload release];
 }
 
-- (void)sendTerminateRequest
+- (void)sendTerminateRequestWithPayload:(NSArray *)bodyPayload 
 {
     NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: @"terminate", @"type", nil];
-    [self makeBodyAndSendHTTPRequestWithPayload:nil attributes:attr namespaces:nil];
+    [self makeBodyAndSendHTTPRequestWithPayload:bodyPayload attributes:attr namespaces:nil];
 }
 
 - (void)trySendingStanzas
 {
     if( state != DISCONNECTED && ![boshWindowManager isWindowFull] ) 
     {
-        if ( [pendingXMPPStanzas count] > 0 && ( state == CONNECTED || state == DISCONNECTING )) 
-        {
-            [self makeBodyAndSendHTTPRequestWithPayload:pendingXMPPStanzas 
-                                             attributes:nil 
-                                             namespaces:nil];
-            [pendingXMPPStanzas removeAllObjects];
-        
-        }
-        else if (state == CONNECTED) {
-            if ([boshWindowManager isWindowEmpty]) 
+        if (state == CONNECTED) {
+            if ( [pendingXMPPStanzas count] > 0 )
+            {
+                [self makeBodyAndSendHTTPRequestWithPayload:pendingXMPPStanzas 
+                                                 attributes:nil 
+                                                 namespaces:nil];
+                [pendingXMPPStanzas removeAllObjects];
+            } 
+            else if ([boshWindowManager isWindowEmpty]) 
             {
                 [self makeBodyAndSendHTTPRequestWithPayload:nil 
                                                  attributes:nil 
@@ -494,7 +493,8 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         }
         else if(state == DISCONNECTING) 
         { 
-            [self sendTerminateRequest];
+            [self sendTerminateRequestWithPayload:pendingXMPPStanzas];
+            [pendingXMPPStanzas removeAllObjects];
             state = TERMINATING;
         }
         else if ([boshWindowManager isWindowEmpty] && state == TERMINATING) 
