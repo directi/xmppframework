@@ -1098,19 +1098,19 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
  */
 - (void)resendRemainingRequests
 {
-	BOOL didSentSomething = false;
+	BOOL didSendSomething = NO;
 	for ( NSNumber *ridNumber in [requestResponsePairs allKeys ])
 	{ 
 		long long rid = [ridNumber longLongValue];
 		RequestResponsePair *pair = [requestResponsePairs objectForLongLongKey:rid];
 		if ( !pair.response )
 		{
-			didSentSomething = true;
+			didSendSomething = YES;
 			[self sendHTTPRequestWithBody:pair.request rid:rid];
 		}
 	}
 	
-	if ( !didSentSomething )
+	if ( !didSendSomething )
 	{
 		// if we havent sent anything, send an empty packet.
 		[self trySendingStanzas];
