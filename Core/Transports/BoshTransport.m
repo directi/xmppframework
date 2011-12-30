@@ -477,19 +477,13 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     if( state != DISCONNECTED && ![boshWindowManager isWindowFull] ) 
     {
         if (state == CONNECTED) {
-            if ( [pendingXMPPStanzas count] > 0 )
+            if ( [pendingXMPPStanzas count] > 0 || [boshWindowManager isWindowEmpty] )
             {
                 [self makeBodyAndSendHTTPRequestWithPayload:pendingXMPPStanzas 
                                                  attributes:nil 
                                                  namespaces:nil];
                 [pendingXMPPStanzas removeAllObjects];
             } 
-            else if ([boshWindowManager isWindowEmpty]) 
-            {
-                [self makeBodyAndSendHTTPRequestWithPayload:nil 
-                                                 attributes:nil 
-                                                 namespaces:nil];                
-            }
         }
         else if(state == DISCONNECTING) 
         { 
