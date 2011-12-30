@@ -541,10 +541,10 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     [requestPayload release];
 }
 
-- (void)sendTerminateRequest
+- (void)sendTerminateRequestWithPayload:(NSArray *)bodyPayload 
 {
     NSMutableDictionary *attr = [NSMutableDictionary dictionaryWithObjectsAndKeys: @"terminate", @"type", nil];
-    [self makeBodyAndSendHTTPRequestWithPayload:nil attributes:attr namespaces:nil];
+    [self makeBodyAndSendHTTPRequestWithPayload:bodyPayload attributes:attr namespaces:nil];
 }
 
 - (void)trySendingStanzas
@@ -552,23 +552,18 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     if( state != DISCONNECTED && ![boshWindowManager isWindowFull] ) 
     {
         if (state == CONNECTED) {
-            if ( [pendingXMPPStanzas count] > 0 )
+            if ( [pendingXMPPStanzas count] > 0 || [boshWindowManager isWindowEmpty] )
             {
                 [self makeBodyAndSendHTTPRequestWithPayload:pendingXMPPStanzas 
                                                  attributes:nil 
                                                  namespaces:nil];
                 [pendingXMPPStanzas removeAllObjects];
             } 
-            else if ([boshWindowManager isWindowEmpty]) 
-            {
-                [self makeBodyAndSendHTTPRequestWithPayload:nil 
-                                                 attributes:nil 
-                                                 namespaces:nil];                
-            }
         }
         else if(state == DISCONNECTING) 
         { 
-            [self sendTerminateRequest];
+            [self sendTerminateRequestWithPayload:pendingXMPPStanzas];
+            [pendingXMPPStanzas removeAllObjects];
             state = TERMINATING;
         }
         else if ([boshWindowManager isWindowEmpty] && state == TERMINATING) 
