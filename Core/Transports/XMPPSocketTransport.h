@@ -79,10 +79,10 @@ enum xmppSocketState {
 	NSArray *srvResults;
 	NSUInteger srvResultsIndex;
 }
-@property (readonly, copy) NSString *host;
-@property (retain) XMPPJID *myJID;
-@property (retain) XMPPJID *remoteJID;
-@property (readonly) BOOL isP2PRecipient;
+@property (nonatomic, readonly, copy) NSString *host;
+@property (nonatomic, retain) XMPPJID *myJID;
+@property (nonatomic, retain) XMPPJID *remoteJID;
+@property (nonatomic, readonly) BOOL isP2PRecipient;
 
 - (id)init;
 - (id)initWithHost:(NSString *)host port:(UInt16)port;
