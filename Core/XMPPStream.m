@@ -141,6 +141,8 @@ enum XMPPStreamFlags
 **/
 - (void)dealloc
 {
+  [transport removeDelegate:self];
+  
 	[transport release];
 	[multicastDelegate release];
 	
