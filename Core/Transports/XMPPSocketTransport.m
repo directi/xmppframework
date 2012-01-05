@@ -15,8 +15,8 @@
 #import "RFSRVResolver.h"
 
 @interface XMPPSocketTransport ()
-@property (readwrite, copy) NSString *host;
-@property (readwrite, assign) UInt16 port;
+@property (nonatomic, readwrite, copy) NSString *host;
+@property (nonatomic, readwrite, assign) UInt16 port;
 - (BOOL)sendString:(NSString *)string;
 - (void)sendOpeningNegotiation;
 @end

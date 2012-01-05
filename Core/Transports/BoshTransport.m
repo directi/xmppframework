@@ -210,8 +210,8 @@ static NSString *BODY_NS = @"http://jabber.org/protocol/httpbind";
 static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 @interface BoshTransport()
-@property(readwrite, assign) NSError *disconnectError;
-@property(retain) NSMutableSet *pendingHTTPRequests;
+@property (nonatomic, readwrite, assign) NSError *disconnectError;
+@property (nonatomic, retain) NSMutableSet *pendingHTTPRequests;
 
 - (void)setInactivityFromString:(NSString *)givenInactivity;
 - (void)setSecureFromString:(NSString *)isSecure;

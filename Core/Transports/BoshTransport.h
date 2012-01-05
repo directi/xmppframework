@@ -69,8 +69,8 @@ typedef enum {
     NSMutableSet *receivedRids;
 }
 
-@property unsigned int windowSize;
-@property (readonly) long long maxRidReceived;
+@property (nonatomic) unsigned int windowSize;
+@property (nonatomic, readonly) long long maxRidReceived;
 
 - (id)initWithRid:(long long)rid;
 - (void)sentRequestForRid:(long long)rid;
@@ -105,23 +105,23 @@ typedef enum {
   unsigned int requests;
 }
 
-@property(retain) XMPPJID *myJID;
-@property(assign) unsigned int wait;
-@property(assign) unsigned int hold;
-@property(copy) NSString *lang;
-@property(copy) NSString *domain;
-@property(copy) NSString *routeProtocol;
-@property(copy) NSString *host;
-@property(assign) unsigned int port;
-@property(assign) unsigned int inactivity;
-@property(readonly) BOOL secure;
-@property(readonly) unsigned int requests;
-@property(copy) NSString *authid;
-@property(copy) NSString *sid;
-@property(copy) NSURL *url;
-@property(readonly) NSError *disconnectError;
+@property (nonatomic, retain) XMPPJID *myJID;
+@property (nonatomic, assign) unsigned int wait;
+@property (nonatomic, assign) unsigned int hold;
+@property (nonatomic, copy) NSString *lang;
+@property (nonatomic, copy) NSString *domain;
+@property (nonatomic, copy) NSString *routeProtocol;
+@property (nonatomic, copy) NSString *host;
+@property (nonatomic, assign) unsigned int port;
+@property (nonatomic, assign) unsigned int inactivity;
+@property (nonatomic, readonly) BOOL secure;
+@property (nonatomic, readonly) unsigned int requests;
+@property (nonatomic, copy) NSString *authid;
+@property (nonatomic, copy) NSString *sid;
+@property (nonatomic, copy) NSURL *url;
+@property (nonatomic, readonly) NSError *disconnectError;
 
-@property(readonly) BOOL isPaused;
+@property(nonatomic, readonly) BOOL isPaused;
 
 /* init Methods */
 - (id)initWithUrl:(NSURL *)url forDomain:(NSString *)domain;
