@@ -742,7 +742,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         [self performSelector:@selector(resendRequest:) 
                    withObject:request 
                    afterDelay:nextRequestDelay];
-        [multicastDelegate transport:self willReconnectInTime:nextRequestDelay];
+        [multicastDelegate transport:self willReconnectInTime:nextRequestDelay+self.wait];
         self.temporaryDisconnect = YES;
 
         if (retryCounter < RETRY_COUNT_LIMIT) {
