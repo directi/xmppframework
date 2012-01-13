@@ -978,9 +978,6 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 #define kDisconnectError_	@"disconnectError_"
 
-#define kRetryCounter		@"retryCounter"
-#define kNextRequestDelay	@"nextRequestDelay"
-
 #define kMyJID			@"myJID"
 #define kWait			@"wait"
 #define kHold			@"hold"
@@ -1010,9 +1007,6 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 	[coder encodeObject:requestResponsePairs forKey:kRequestResponsePairs];
 	
 	[coder encodeObject:disconnectError_ forKey:kDisconnectError_];
-	
-	[coder encodeInt:retryCounter  forKey:kRetryCounter];
-	[coder encodeDouble:nextRequestDelay forKey:kNextRequestDelay];
 	
 	[coder encodeObject:self.myJID forKey:kMyJID];
 	[coder encodeInt:self.wait forKey:kWait];
@@ -1046,11 +1040,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 	requestResponsePairs = [[coder decodeObjectForKey:kRequestResponsePairs] retain];
 	
 	disconnectError_ = [[coder decodeObjectForKey:kDisconnectError_] retain];
-	
-	retryCounter = [coder decodeIntForKey:kRetryCounter];
-	nextRequestDelay= [coder decodeDoubleForKey:kNextRequestDelay];
-	
-	
+		
 	self.myJID= [coder decodeObjectForKey:kMyJID];
 	self.wait= [coder decodeIntForKey:kWait];
 	self.hold= [coder decodeIntForKey:kHold];
@@ -1072,6 +1062,9 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 	{
 		[[NSHTTPCookieStorage sharedHTTPCookieStorage] setCookie:cookie];
 	}
+
+	retryCounter = 0;
+	nextRequestDelay= INITIAL_RETRY_DELAY;
 
 	multicastDelegate = [[MulticastDelegate alloc] init];
 	
