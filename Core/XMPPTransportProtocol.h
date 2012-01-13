@@ -77,4 +77,6 @@
 - (void)transport:(id <XMPPTransportProtocol>)transport didReceiveError:(id)error;
 - (void)transportDidSecure:(id <XMPPTransportProtocol>)transport;
 
+- (void)transport:(id <XMPPTransportProtocol>)transport willReconnectInTime:(NSTimeInterval)time;
+- (void)transportDidReconnect:(id <XMPPTransportProtocol>)transport;
 @end
