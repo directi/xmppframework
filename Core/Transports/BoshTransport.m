@@ -210,6 +210,7 @@ static NSString *BODY_NS = @"http://jabber.org/protocol/httpbind";
 static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 @interface BoshTransport()
+@property (nonatomic, assign) BOOL temporaryDisconnect;
 @property (nonatomic, readwrite, assign) NSError *disconnectError;
 @property (nonatomic, retain) NSMutableSet *pendingHTTPRequests;
 
@@ -262,6 +263,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 @synthesize disconnectError = disconnectError_;
 @synthesize pendingHTTPRequests = pendingHTTPRequests_;
 @synthesize isPaused;
+@synthesize temporaryDisconnect = temporaryDisconnect_;
 
 #define BoshVersion @"1.6"
 
@@ -368,6 +370,8 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         myJID_ = nil;
         state = DISCONNECTED;
         disconnectError_ = nil;
+				
+        temporaryDisconnect_ = NO;
 
         /* Keeping a random capacity right now */
         pendingXMPPStanzas = [[NSMutableArray alloc] initWithCapacity:25];
@@ -730,16 +734,21 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     
     [pendingHTTPRequests_ removeObject:request];
     
-    BOOL shouldReconnect = ([error code] == ASIRequestTimedOutErrorType || [error code] == ASIConnectionFailureErrorType) && ( retryCounter < RETRY_COUNT_LIMIT ) && 
-        (state == CONNECTED);
-    if(shouldReconnect) 
+    BOOL shouldReconnect = ([error code] == ASIRequestTimedOutErrorType || [error code] == ASIConnectionFailureErrorType) && 
+        (state == CONNECTED || state == DISCONNECTING);
+    if(shouldReconnect)
     {
         DDLogInfo(@"Resending the request");
         [self performSelector:@selector(resendRequest:) 
                    withObject:request 
                    afterDelay:nextRequestDelay];
-        ++retryCounter;
-        nextRequestDelay *= DELAY_EXPONENTIATING_FACTOR;
+        [multicastDelegate transport:self willReconnectInTime:nextRequestDelay];
+        self.temporaryDisconnect = YES;
+
+        if (retryCounter < RETRY_COUNT_LIMIT) {
+            ++retryCounter;
+            nextRequestDelay *= DELAY_EXPONENTIATING_FACTOR;
+				}
     }
     else 
     {
@@ -775,6 +784,12 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         return;
     }
     
+    if (self.temporaryDisconnect)
+    {
+        self.temporaryDisconnect = NO;
+        [multicastDelegate transportDidReconnect:self];
+    }
+		
     retryCounter = 0;
     nextRequestDelay = INITIAL_RETRY_DELAY;
     
