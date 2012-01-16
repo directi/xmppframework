@@ -945,6 +945,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 - (void)dealloc
 {
+	[NSObject cancelPreviousPerformRequestsWithTarget:self];
     for (ASIHTTPRequest *request in pendingHTTPRequests_) 
     {
       DDLogWarn(@"Cancelling pending request with rid = %qi", [self getRidFromRequest:request]);
