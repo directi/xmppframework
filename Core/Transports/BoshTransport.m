@@ -741,6 +741,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         ++retryCounter;
         if (nextRequestDelay < DELAY_UPPER_LIMIT) {
             nextRequestDelay *= DELAY_EXPONENTIATING_FACTOR;
+			nextRequestDelay = MIN(nextRequestDelay, DELAY_UPPER_LIMIT);
         }
     }
     else 
