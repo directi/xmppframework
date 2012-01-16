@@ -201,7 +201,7 @@
 
 static const int RETRY_COUNT_LIMIT = 25;
 static const NSTimeInterval RETRY_DELAY = 1.0;
-static const NSTimeInterval DELAY_UPPER_LIMIT = 64.0;
+static const NSTimeInterval DELAY_UPPER_LIMIT = 32.0;
 static const NSTimeInterval DELAY_EXPONENTIATING_FACTOR = 2.0;
 static const NSTimeInterval INITIAL_RETRY_DELAY = 1.0;
 
