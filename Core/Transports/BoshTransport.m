@@ -1126,6 +1126,10 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 	isPaused = false;
 	
 	[self resendRemainingRequests];
+
+	// reset retry timeout
+	retryCounter = 0;
+	nextRequestDelay= INITIAL_RETRY_DELAY;
 }
 
 
