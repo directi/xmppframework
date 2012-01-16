@@ -731,7 +731,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     [pendingHTTPRequests_ removeObject:request];
     
     BOOL shouldReconnect = ([error code] == ASIRequestTimedOutErrorType || [error code] == ASIConnectionFailureErrorType) && ( retryCounter < RETRY_COUNT_LIMIT ) && 
-        (state == CONNECTED);
+        (state == CONNECTED || state == DISCONNECTING);
     if(shouldReconnect) 
     {
         DDLogInfo(@"Resending the request");
