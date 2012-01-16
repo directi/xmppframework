@@ -201,7 +201,7 @@
 
 static const int RETRY_COUNT_LIMIT = 25;
 static const NSTimeInterval RETRY_DELAY = 1.0;
-static const NSTimeInterval DELAY_UPPER_LIMIT = 128.0;
+static const NSTimeInterval DELAY_UPPER_LIMIT = 32.0;
 static const NSTimeInterval DELAY_EXPONENTIATING_FACTOR = 2.0;
 static const NSTimeInterval INITIAL_RETRY_DELAY = 1.0;
 
@@ -731,7 +731,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     [pendingHTTPRequests_ removeObject:request];
     
     BOOL shouldReconnect = ([error code] == ASIRequestTimedOutErrorType || [error code] == ASIConnectionFailureErrorType) && ( retryCounter < RETRY_COUNT_LIMIT ) && 
-        (state == CONNECTED);
+        (state == CONNECTED || state == DISCONNECTING);
     if(shouldReconnect) 
     {
         DDLogInfo(@"Resending the request");
@@ -739,7 +739,10 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
                    withObject:request 
                    afterDelay:nextRequestDelay];
         ++retryCounter;
-        nextRequestDelay *= DELAY_EXPONENTIATING_FACTOR;
+        if (nextRequestDelay < DELAY_UPPER_LIMIT) {
+            nextRequestDelay *= DELAY_EXPONENTIATING_FACTOR;
+			nextRequestDelay = MIN(nextRequestDelay, DELAY_UPPER_LIMIT);
+        }
     }
     else 
     {
@@ -942,6 +945,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 - (void)dealloc
 {
+	[NSObject cancelPreviousPerformRequestsWithTarget:self];
     for (ASIHTTPRequest *request in pendingHTTPRequests_) 
     {
       DDLogWarn(@"Cancelling pending request with rid = %qi", [self getRidFromRequest:request]);
@@ -1126,6 +1130,10 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 	isPaused = false;
 	
 	[self resendRemainingRequests];
+
+	// reset retry timeout
+	retryCounter = 0;
+	nextRequestDelay = INITIAL_RETRY_DELAY;
 }
 
 
