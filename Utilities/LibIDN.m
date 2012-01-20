@@ -2,12 +2,28 @@
 #import "stringprep.h"
 
 
+static NSMutableDictionary *nodeDictionary;
+static NSMutableDictionary *domainDictionary;
+static NSMutableDictionary *resourceDictionary;
+
+
 @implementation LibIDN
+
++ (void)initialize {
+	if (self == [LibIDN class]) {
+		nodeDictionary = [[NSMutableDictionary alloc] init];
+		domainDictionary = [[NSMutableDictionary alloc] init];
+		resourceDictionary = [[NSMutableDictionary alloc] init];
+	}
+}
 
 + (NSString *)prepNode:(NSString *)node
 {
 	if(node == nil) return nil;
 	
+	NSString *cachedValue = [nodeDictionary objectForKey:node];
+	if (cachedValue != nil) return cachedValue;
+
 	// Each allowable portion of a JID MUST NOT be more than 1023 bytes in length.
 	// We make the buffer just big enough to hold a null-terminated string of this length. 
 	char buf[1024];
@@ -23,6 +39,9 @@
 {
 	if(domain == nil) return nil;
 	
+	NSString *cachedValue = [nodeDictionary objectForKey:domain];
+	if (cachedValue != nil) return cachedValue;
+
 	// Each allowable portion of a JID MUST NOT be more than 1023 bytes in length.
 	// We make the buffer just big enough to hold a null-terminated string of this length. 
 	char buf[1024];
@@ -38,6 +57,9 @@
 {
 	if(resource == nil) return nil;
 	
+	NSString *cachedValue = [nodeDictionary objectForKey:resource];
+	if (cachedValue != nil) return cachedValue;
+
 	// Each allowable portion of a JID MUST NOT be more than 1023 bytes in length.
 	// We make the buffer just big enough to hold a null-terminated string of this length. 
 	char buf[1024];
