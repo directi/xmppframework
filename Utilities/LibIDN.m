@@ -32,14 +32,16 @@ static NSMutableDictionary *resourceDictionary;
 	
 	if(stringprep_xmpp_nodeprep(buf, sizeof(buf)) != 0) return nil;
 	
-	return [NSString stringWithUTF8String:buf];
+	NSString *returnValue = [NSString stringWithUTF8String:buf];
+	[nodeDictionary setObject:returnValue forKey:node];
+	return returnValue;
 }
 
 + (NSString *)prepDomain:(NSString *)domain
 {
 	if(domain == nil) return nil;
 	
-	NSString *cachedValue = [nodeDictionary objectForKey:domain];
+	NSString *cachedValue = [domainDictionary objectForKey:domain];
 	if (cachedValue != nil) return cachedValue;
 
 	// Each allowable portion of a JID MUST NOT be more than 1023 bytes in length.
@@ -50,14 +52,16 @@ static NSMutableDictionary *resourceDictionary;
 	
 	if(stringprep_nameprep(buf, sizeof(buf)) != 0) return nil;
 	
-	return [NSString stringWithUTF8String:buf];
+	NSString *returnValue = [NSString stringWithUTF8String:buf];
+	[domainDictionary setObject:returnValue forKey:domain];
+	return returnValue;
 }
 
 + (NSString *)prepResource:(NSString *)resource
 {
 	if(resource == nil) return nil;
 	
-	NSString *cachedValue = [nodeDictionary objectForKey:resource];
+	NSString *cachedValue = [resourceDictionary objectForKey:resource];
 	if (cachedValue != nil) return cachedValue;
 
 	// Each allowable portion of a JID MUST NOT be more than 1023 bytes in length.
@@ -68,7 +72,9 @@ static NSMutableDictionary *resourceDictionary;
 	
 	if(stringprep_xmpp_resourceprep(buf, sizeof(buf)) != 0) return nil;
 	
-	return [NSString stringWithUTF8String:buf];
+	NSString *returnValue = [NSString stringWithUTF8String:buf];
+	[resourceDictionary setObject:returnValue forKey:resource];
+	return returnValue;
 }
 
 @end
