@@ -25,9 +25,7 @@
 	
 	MulticastDelegate <XMPPRosterDelegate> *multicastDelegate;
 	
-	Byte flags;
-	
-	NSMutableArray *earlyPresenceElements;
+	Byte flags;	
 }
 
 - (id)initWithStream:(XMPPStream *)xmppStream rosterStorage:(id <XMPPRosterStorage>)storage;

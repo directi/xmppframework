@@ -11,7 +11,6 @@ enum XMPPRosterFlags
 
 @interface XMPPRoster ()
 
-@property(retain) NSMutableArray *earlyPresenceElements;
 @property(assign) Byte flags;
 
 - (void)xmppStream:(XMPPStream *)sender didReceivePresence:(XMPPPresence *)presence;
@@ -24,7 +23,6 @@ enum XMPPRosterFlags
 
 @implementation XMPPRoster
 
-@synthesize earlyPresenceElements;
 @synthesize flags;
 @synthesize xmppStream;
 @synthesize xmppRosterStorage;
@@ -53,8 +51,6 @@ enum XMPPRosterFlags
         }
 		
 		flags = 0;
-		
-		earlyPresenceElements = [[NSMutableArray alloc] initWithCapacity:2];
 	}
 	return self;
 }
@@ -67,8 +63,6 @@ enum XMPPRosterFlags
 	[xmppStream release];
 	
 	[xmppRosterStorage release];
-	
-	[earlyPresenceElements release];
 	
 	[super dealloc];
 }
@@ -315,15 +309,6 @@ enum XMPPRosterFlags
   
   [self setHasRoster:YES];
   
-  // Which means we can process any premature presence elements we received
-  for (XMPPPresence *presence in self.earlyPresenceElements)
-  {
-    // needs to happen on the main thread or context will get messed up
-    [self performSelectorOnMainThread:@selector(didReceivePresence:)
-                           withObject:presence
-                        waitUntilDone:NO];
-  }
-  [self.earlyPresenceElements removeAllObjects];
   [pool release];
 }
 
@@ -456,8 +441,6 @@ enum XMPPRosterFlags
 		// So there's no need to refetch the roster.
 		
 		[xmppRosterStorage clearAllResourcesForXMPPStream:sender];
-		
-		[self.earlyPresenceElements removeAllObjects];
 	}
 }
 
@@ -472,8 +455,6 @@ enum XMPPRosterFlags
 	
 	[self setRequestedRoster:NO];
 	[self setHasRoster:NO];
-	
-	[self.earlyPresenceElements removeAllObjects];
 }
 
 @end
