@@ -407,33 +407,6 @@ enum XMPPRosterFlags
     if (sender != xmppStream) {
         return;
     }
-	if (![self hasRoster])
-	{
-		// We received a presence notification,
-		// but we don't have a roster to apply it to yet.
-		// 
-		// This is possible if we send our presence before we've received our roster.
-		// It's even possible if we send our presence after we've requested our roster.
-		// There is no guarantee the server will process our requests serially,
-		// and the server may start sending presence elements before it sends our roster.
-		// 
-		// However, if we've requested the roster,
-		// then it shouldn't be too long before we receive it.
-		// So we should be able to simply queue the presence elements for later processing.
-		
-		if ([self requestedRoster])
-		{
-			// We store the presence element until we get our roster.
-			[self.earlyPresenceElements addObject:presence];
-		}
-		else
-		{
-			// The user has not requested the roster.
-			// This is a rogue presence element, or the user is simply not using our roster management.
-		}
-		
-		return;
-	}
 	
 	if ([[presence type] isEqualToString:@"subscribe"])
 	{
