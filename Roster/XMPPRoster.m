@@ -286,11 +286,6 @@ enum XMPPRosterFlags
 }
 
 
-- (void)didReceivePresence:(XMPPPresence *)presence {
-  [self xmppStream:xmppStream didReceivePresence:presence];
-}
-
-
 - (void)updateRosterWithQuery:(NSXMLElement *)query {
   NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
   
