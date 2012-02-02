@@ -1,7 +1,11 @@
 #import "XMPPElement.h"
 #import "XMPPJID.h"
 #import "NSXMLElementAdditions.h"
+#import <objc/runtime.h>
 
+
+static char toKey;
+static char fromKey;
 
 @implementation XMPPElement
 
@@ -69,12 +73,28 @@
 
 - (XMPPJID *)to
 {
-	return [XMPPJID jidWithString:[self toStr]];
+	// Cache the value returned by this method
+	// Unfortunately we can't use instance variables here since the 
+	// xmppframework changes instances of NSXMLElement directly to XMPPIQ, 
+	// XMPPPresence, etc. (subclasses of XMPPElement) using object_setClass(). 
+	// This forbids us from adding any instance variables to these classes.
+	// See note in the implementation of +[XMPPIQ initialize] for more.
+	XMPPJID *to = objc_getAssociatedObject(self, &toKey);
+	if (to == nil) {
+		to = [XMPPJID jidWithString:[self toStr]];
+		objc_setAssociatedObject(self, &toKey, to, OBJC_ASSOCIATION_RETAIN);
+	}
+	return to;
 }
 
 - (XMPPJID *)from
 {
-	return [XMPPJID jidWithString:[self fromStr]];
+	XMPPJID *from = objc_getAssociatedObject(self, &fromKey);
+	if (from == nil) {
+		from = [XMPPJID jidWithString:[self fromStr]];
+		objc_setAssociatedObject(self, &fromKey, from, OBJC_ASSOCIATION_RETAIN);
+	}
+	return from;
 }
 
 @end

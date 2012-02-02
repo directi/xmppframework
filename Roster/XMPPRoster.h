@@ -25,9 +25,7 @@
 	
 	MulticastDelegate <XMPPRosterDelegate> *multicastDelegate;
 	
-	Byte flags;
-	
-	NSMutableArray *earlyPresenceElements;
+	Byte flags;	
 }
 
 - (id)initWithStream:(XMPPStream *)xmppStream rosterStorage:(id <XMPPRosterStorage>)storage;
@@ -55,6 +53,9 @@
 
 - (id <XMPPUser>)userForJID:(XMPPJID *)jid;
 - (id <XMPPResource>)resourceForJID:(XMPPJID *)jid;
+
+- (BOOL)hasRoster;
+- (void)setHasRoster:(BOOL)flag;
 
 @end
 
@@ -100,5 +101,10 @@
  * You can use [presence from] to get the JID of the buddy who sent the request.
 **/
 - (void)xmppRoster:(XMPPRoster *)sender didReceiveBuddyRequest:(XMPPPresence *)presence;
+
+/**
+ * Sent when the roster is received.
+ **/
+- (void)xmppRosterDidReceiveRoster:(XMPPRoster *)sender;
 
 @end

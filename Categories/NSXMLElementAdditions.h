@@ -5,7 +5,7 @@
 #endif
 
 
-@interface NSXMLElement (XMPPStreamAdditions)
+@interface NSXMLElement (XMPPStreamAdditions) <NSCoding>
 
 + (NSXMLElement *)elementWithName:(NSString *)name xmlns:(NSString *)ns;
 
@@ -42,5 +42,7 @@
 
 - (NSString *)namespaceStringValueForPrefix:(NSString *)prefix;
 - (NSString *)namespaceStringValueForPrefix:(NSString *)prefix withDefaultValue:(NSString *)defaultValue;
+
++ (NSXMLElement *)parseWellFormatedXMLString:(NSString *)xml;
 
 @end

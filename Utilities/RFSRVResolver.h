@@ -9,7 +9,7 @@
 #import <Foundation/Foundation.h>
 #import <dns_sd.h>
 
-#import "XMPPStream.h"
+#import "XMPPTransportProtocol.h"
 #import "DDLog.h"
 
 
@@ -40,19 +40,19 @@ extern NSString * kRFSRVResolverErrorDomain;
 
 @interface RFSRVResolver : NSObject {
 	
-	XMPPStream *			_xmppStream;
+	id<XMPPTransportProtocol>   _transport;
 	
-	id						_delegate;
+	id                          _delegate;
 	
-    BOOL                    _finished;
-    NSError *               _error;
-    NSMutableArray *        _results;
-    DNSServiceRef           _sdRef;
-    CFSocketRef             _sdRefSocket;
-    NSTimer *               _timeoutTimer;
+    BOOL                        _finished;
+    NSError *                   _error;
+    NSMutableArray *            _results;
+    DNSServiceRef               _sdRef;
+    CFSocketRef                 _sdRefSocket;
+    NSTimer *                   _timeoutTimer;
 }
 
-@property (nonatomic, retain, readonly) XMPPStream *				xmppStream;
+@property (nonatomic, retain, readonly) id<XMPPTransportProtocol>	transport;
 @property (nonatomic, assign, readwrite) id							delegate;
 
 @property (nonatomic, assign, readonly, getter=isFinished) BOOL     finished;		// observable
@@ -60,9 +60,9 @@ extern NSString * kRFSRVResolverErrorDomain;
 @property (nonatomic, retain, readonly) NSArray *                   results;		// of RFSRVRecord, observable
 
 
-+ (RFSRVResolver *)resolveWithStream:(XMPPStream *)xmppStream delegate:(id)delegate;
++ (RFSRVResolver *)resolveWithTransport:(id<XMPPTransportProtocol>)transport delegate:(id)delegate;
 
-- (id)initWithStream:(XMPPStream *)xmppStream;
+- (id)initWithTransport:(id<XMPPTransportProtocol>)transport;
 
 - (void)start;
 - (void)stop;
