@@ -102,4 +102,9 @@
 **/
 - (void)xmppRoster:(XMPPRoster *)sender didReceiveBuddyRequest:(XMPPPresence *)presence;
 
+/**
+ * Sent when the roster is received.
+ **/
+- (void)xmppRosterDidReceiveRoster:(XMPPRoster *)sender;
+
 @end

@@ -303,7 +303,8 @@ enum XMPPRosterFlags
   [xmppRosterStorage endRosterPopulationForXMPPStream:xmppStream];
   
   [self setHasRoster:YES];
-  
+  [multicastDelegate xmppRosterDidReceiveRoster:self];
+
   [pool release];
 }
 
