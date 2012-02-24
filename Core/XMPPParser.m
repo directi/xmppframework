@@ -656,13 +656,17 @@ static void xmlEndElement(void *ctx, const xmlChar *localname,
 #pragma mark Threading
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+- (void)nopTimer:(NSTimer *)timer {
+  // do nothing
+}
+
 - (void)parsingThread_Main
 {
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	
 	// We can't run the run loop unless it has an associated input source or a timer.
 	// So we'll just create a timer that will never fire - unless the server runs for 10,000 years.
-	[NSTimer scheduledTimerWithTimeInterval:DBL_MAX target:self selector:@selector(ignore:) userInfo:nil repeats:NO];
+	[NSTimer scheduledTimerWithTimeInterval:DBL_MAX target:self selector:@selector(nopTimer:) userInfo:nil repeats:NO];
 	
 	// Run the runloop
 	
