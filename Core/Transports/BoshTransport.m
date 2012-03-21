@@ -775,6 +775,14 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         ![parsedResponse.name isEqualToString:@"body"]  || 
         ![[parsedResponse namespaceStringValueForPrefix:@""] isEqualToString:BODY_NS])
     {
+#if DEBUG_WARN
+		if (parsedResponse != nil) {
+			DDLogWarn(@"BOSH: Parse Failure: Unexpected XML in response: %@", parsedResponse);
+		} else {
+			DDLogWarn(@"BOSH: Parse Failure: Cannot parse response string: %@", [request responseString]);
+			DDLogWarn(@"BOSH: Parse Failure: Response headers: %@", [request responseHeaders]);
+		}
+#endif
         [self requestFailed:request];
         return;
     }
