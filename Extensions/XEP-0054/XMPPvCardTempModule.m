@@ -69,7 +69,9 @@ enum {
   _openFetchRequests++;
   DDLogVerbose(@"%s %d", __PRETTY_FUNCTION__, _openFetchRequests);
 #endif
-  
+
+  DDLogVerbose(@"sending fetch request for vcard avatar for %@", jid);
+
   [xmppStream sendElement:iq];
 }
 
