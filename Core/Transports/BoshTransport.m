@@ -11,6 +11,8 @@
 #import "NSXMLElementAdditions.h"
 #import "DDLog.h"
 
+NSString *const BOSHParsingErrorDomain = @"BOSHParsingErrorDomain";
+
 @interface NSMutableSet(BoshTransport)
 - (void)addLongLong:(long long)number;
 - (void)removeLongLong:(long long)number;
@@ -236,7 +238,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
                                  namespaces:(NSMutableDictionary *)namespaces;
 - (NSArray *)newXMLNodeArrayFromDictionary:(NSDictionary *)dict 
                                     ofType:(XMLNodeType)type;
-- (NSXMLElement *)parseXMLData:(NSData *)xml;
+- (NSXMLElement *)parseXMLData:(NSData *)xml error:(NSError **)error;
 - (NSXMLElement *)parseXMLString:(NSString *)xml;
 - (BOOL) createSession:(NSError **)error;
 @end
@@ -714,25 +716,18 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 - (void)resendRequest:(ASIHTTPRequest *)request
 {
     long long rid = [self getRidFromRequest:request];
-    [self sendHTTPRequestWithBody:[self parseXMLData:[request postBody]] rid:rid];
+    [self sendHTTPRequestWithBody:[self parseXMLData:[request postBody] error:NULL] rid:rid];
 }
 
-- (void)requestFailed:(ASIHTTPRequest *)request
-{
-    NSError *error = [request error];
-    long long rid = [self getRidFromRequest:request];
-    
-#if DEBUG_WARN
-    NSString *requestString = [[NSString alloc] initWithData:[request postBody] encoding:NSUTF8StringEncoding];
-    DDLogWarn(@"BOSH: Request Failed[%qi] = %@", rid, requestString);
-    DDLogWarn(@"Failure HTTP statusCode = %d, error domain = %@, error code = %d", [request responseStatusCode],[[request error] domain], [[request error] code]);
-    [requestString release];
-#endif
-    
-    [pendingHTTPRequests_ removeObject:request];
-    
-    BOOL shouldReconnect = ([error code] == ASIRequestTimedOutErrorType || [error code] == ASIConnectionFailureErrorType) && ( retryCounter < RETRY_COUNT_LIMIT ) && 
-        (state == CONNECTED || state == DISCONNECTING);
+- (void)processError:(NSError *)error forRequest:(ASIHTTPRequest *)request {
+	NSString *errorDomain = [error domain];
+	BOOL shouldReconnect = (  (   [errorDomain isEqualToString:BOSHParsingErrorDomain]
+							   || [errorDomain isEqualToString:@"DDXMLErrorDomain"]
+							   || (   [errorDomain isEqualToString:NetworkRequestErrorDomain]
+								   && (   [error code] == ASIRequestTimedOutErrorType
+									   || [error code] == ASIConnectionFailureErrorType)))
+							&& (retryCounter < RETRY_COUNT_LIMIT)
+							&& (state == CONNECTED || state == DISCONNECTING));
     if(shouldReconnect) 
     {
         DDLogInfo(@"Resending the request");
@@ -757,6 +752,24 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         state = DISCONNECTED;
         [self handleDisconnection];
     }
+	
+}
+
+- (void)requestFailed:(ASIHTTPRequest *)request
+{
+    NSError *error = [request error];
+    long long rid = [self getRidFromRequest:request];
+    
+#if DEBUG_WARN
+    NSString *requestString = [[NSString alloc] initWithData:[request postBody] encoding:NSUTF8StringEncoding];
+    DDLogWarn(@"BOSH: Request Failed[%qi] = %@", rid, requestString);
+    DDLogWarn(@"Failure HTTP statusCode = %d, error domain = %@, error code = %d", [request responseStatusCode],[[request error] domain], [[request error] code]);
+    [requestString release];
+#endif
+    
+    [pendingHTTPRequests_ removeObject:request];
+    
+	[self processError:error forRequest:request];
 }
 
 /* 
@@ -775,21 +788,23 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
     NSData *responseData = [request responseData];
     
-    NSXMLElement *parsedResponse = [self parseXMLData:responseData];
-    
+	NSError *error;
+    NSXMLElement *parsedResponse = [self parseXMLData:responseData error:&error];
+	
     if (!parsedResponse || parsedResponse.kind != DDXMLElementKind || 
         ![parsedResponse.name isEqualToString:@"body"]  || 
         ![[parsedResponse namespaceStringValueForPrefix:@""] isEqualToString:BODY_NS])
     {
-#if DEBUG_WARN
 		if (parsedResponse != nil) {
 			DDLogWarn(@"BOSH: Parse Failure: Unexpected XML in response: %@", parsedResponse);
+			error = [NSError errorWithDomain:BOSHParsingErrorDomain
+										code:0
+									userInfo:nil];
 		} else {
 			DDLogWarn(@"BOSH: Parse Failure: Cannot parse response string: %@", [request responseString]);
-			DDLogWarn(@"BOSH: Parse Failure: Response headers: %@", [request responseHeaders]);
 		}
-#endif
-        [self requestFailed:request];
+		DDLogWarn(@"BOSH: Parse Failure: Response headers: %@", [request responseHeaders]);
+		[self processError:error forRequest:request];
         return;
     }
     
@@ -901,11 +916,14 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     return element;
 }
 
-- (NSXMLElement *)parseXMLData:(NSData *)xml
+- (NSXMLElement *)parseXMLData:(NSData *)xml error:(NSError **)error
 {
     NSXMLDocument *doc = [[[NSXMLDocument alloc] initWithData:xml 
                                                       options:0 
-                                                        error:NULL] autorelease];
+                                                        error:error] autorelease];
+	if (doc == nil) {
+		return nil;
+	}
     NSXMLElement *element = [doc rootElement];
     [element detach];
     return element;
