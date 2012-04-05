@@ -721,13 +721,13 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 
 - (void)processError:(NSError *)error forRequest:(ASIHTTPRequest *)request {
 	NSString *errorDomain = [error domain];
-	BOOL shouldReconnect = (  (   [errorDomain isEqualToString:BOSHParsingErrorDomain]
-							   || [errorDomain isEqualToString:@"DDXMLErrorDomain"]
-							   || (   [errorDomain isEqualToString:NetworkRequestErrorDomain]
-								   && (   [error code] == ASIRequestTimedOutErrorType
-									   || [error code] == ASIConnectionFailureErrorType)))
-							&& (retryCounter < RETRY_COUNT_LIMIT)
-							&& (state == CONNECTED || state == DISCONNECTING));
+	BOOL shouldReconnect = (([errorDomain isEqualToString:BOSHParsingErrorDomain] ||
+							 [errorDomain isEqualToString:@"DDXMLErrorDomain"] ||
+							 ([errorDomain isEqualToString:NetworkRequestErrorDomain] && 
+							  ([error code] == ASIRequestTimedOutErrorType ||
+							   [error code] == ASIConnectionFailureErrorType))) &&
+							(retryCounter < RETRY_COUNT_LIMIT) &&
+							(state == CONNECTED || state == DISCONNECTING));
     if(shouldReconnect) 
     {
         DDLogInfo(@"Resending the request");
