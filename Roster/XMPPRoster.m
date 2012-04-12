@@ -388,7 +388,6 @@ enum XMPPRosterFlags
     if (sender != xmppStream) {
         return;
     }
-	DDLogVerbose(@"Presence received for %@ as %@",[presence from], [[presence show] length] == 0 ? @"available" : [presence show]);
   
 	if ([[presence type] isEqualToString:@"subscribe"])
 	{

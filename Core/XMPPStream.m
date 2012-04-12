@@ -1655,7 +1655,9 @@ enum XMPPStreamFlags
 		}
 		else if([elementName isEqualToString:@"presence"])
 		{
-			[multicastDelegate xmppStream:self didReceivePresence:[XMPPPresence presenceFromElement:element]];
+      XMPPPresence *presence = [XMPPPresence presenceFromElement:element];
+      DDLogVerbose(@"Presence received for %@ as %@",[presence from], [[presence type] isEqualToString:@"unavailable"] ? @"unavailable" : [[presence show] length] == 0 ? @"available" : [presence show]);
+			[multicastDelegate xmppStream:self didReceivePresence:presence];
 		}
 		else if([self isP2P] &&
                 ([elementName isEqualToString:@"stream:features"] || [elementName isEqualToString:@"features"]))
