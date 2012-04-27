@@ -783,7 +783,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     if (DEBUG_RECV_PRE) {
         DDLogRecvPre(@"BOSH: RECD[%qi] = %@", rid, [request responseString]);
     } else {
-        DDLogInfo(@"BOSH: RECD sid: %@, rid: %qi", sid_, rid);
+        DDLogVerbose(@"BOSH: RECD sid: %@, rid: %qi", sid_, rid);
     }
 
     NSData *responseData = [request responseData];
@@ -845,7 +845,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 	if (DEBUG_SEND) {
 		DDLogSend(@"BOSH: SEND[%qi] = %@", rid, body);
 	} else {
-		DDLogInfo(@"BOSH: SEND sid: %@, rid: %qi", sid_, rid);
+		DDLogVerbose(@"BOSH: SEND sid: %@, rid: %qi", sid_, rid);
 	}
 
     return;
