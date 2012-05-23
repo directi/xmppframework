@@ -1655,8 +1655,16 @@ enum XMPPStreamFlags
 		}
 		else if([elementName isEqualToString:@"presence"])
 		{
-      XMPPPresence *presence = [XMPPPresence presenceFromElement:element];
-      DDLogVerbose(@"Presence received for %@ as %@",[presence from], [[presence type] isEqualToString:@"unavailable"] ? @"unavailable" : [[presence show] length] == 0 ? @"available" : [presence show]);
+			XMPPPresence *presence = [XMPPPresence presenceFromElement:element];
+			DDLogVerbose(@"Presence received for %@ as %@",[presence from], [[presence type] isEqualToString:@"unavailable"] ? @"unavailable" : [[presence show] length] == 0 ? @"available" : [presence show]);
+			// Remove the xml:lang attribute from presence since its ns->prefix gets deallocated
+			// for an unknown reason later on and crashes the app afterwards when we try to 
+			// access an attribute of this NSXMLElement
+			//
+			// Since -removeAttributeForName works only with the name and not with namespaces,
+			// we cannot explicitly remove xml:lang. This means that any XML attribute named 
+			// "lang" will be removed even it doesn't belong to the xml namespace
+			[presence removeAttributeForName:@"lang"];
 			[multicastDelegate xmppStream:self didReceivePresence:presence];
 		}
 		else if([self isP2P] &&
