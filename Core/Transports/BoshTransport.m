@@ -948,6 +948,7 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
         }
         else
         {
+            [array release];
             NSException *exception = [NSException exceptionWithName:@"InvalidXMLNodeType"
                                                              reason:@"BOSH: Wrong Type Passed to createArrayFrom Dictionary"
                                                            userInfo:nil];
