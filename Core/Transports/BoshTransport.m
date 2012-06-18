@@ -780,10 +780,10 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
 {
     long long rid = [self getRidFromRequest:request];
 
-    if (DEBUG_RECV_PRE) {
-        DDLogRecvPre(@"BOSH: RECD[%qi] = %@", rid, [request responseString]);
+    if (DEBUG_VERBOSE) {
+        DDLogVerbose(@"BOSH: RECD sid: %@, rid: %qi = %@", sid_, rid, [request responseString]);
     } else {
-        DDLogVerbose(@"BOSH: RECD sid: %@, rid: %qi", sid_, rid);
+        DDLogInfo(@"BOSH: RECD sid: %@, rid: %qi", sid_, rid);
     }
 
     NSData *responseData = [request responseData];
@@ -842,10 +842,10 @@ static const NSString *XMPP_NS = @"urn:xmpp:xbosh";
     [pendingHTTPRequests_ addObject:request];
     
     [request startAsynchronous];
-	if (DEBUG_SEND) {
-		DDLogSend(@"BOSH: SEND[%qi] = %@", rid, body);
+	if (DEBUG_VERBOSE) {
+		DDLogVerbose(@"BOSH: SEND sid: %@, rid: %qi = %@", sid_, rid, body);
 	} else {
-		DDLogVerbose(@"BOSH: SEND sid: %@, rid: %qi", sid_, rid);
+		DDLogInfo(@"BOSH: SEND sid: %@, rid: %qi", sid_, rid);
 	}
 
     return;
