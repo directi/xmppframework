@@ -1,5 +1,6 @@
 #import "XMPPRoster.h"
 #import "XMPP.h"
+#import "DDLog.h"
 
 
 enum XMPPRosterFlags
@@ -11,7 +12,6 @@ enum XMPPRosterFlags
 
 @interface XMPPRoster ()
 
-@property(retain) NSMutableArray *earlyPresenceElements;
 @property(assign) Byte flags;
 
 - (void)xmppStream:(XMPPStream *)sender didReceivePresence:(XMPPPresence *)presence;
@@ -24,7 +24,6 @@ enum XMPPRosterFlags
 
 @implementation XMPPRoster
 
-@synthesize earlyPresenceElements;
 @synthesize flags;
 @synthesize xmppStream;
 @synthesize xmppRosterStorage;
@@ -53,8 +52,6 @@ enum XMPPRosterFlags
         }
 		
 		flags = 0;
-		
-		earlyPresenceElements = [[NSMutableArray alloc] initWithCapacity:2];
 	}
 	return self;
 }
@@ -67,8 +64,6 @@ enum XMPPRosterFlags
 	[xmppStream release];
 	
 	[xmppRosterStorage release];
-	
-	[earlyPresenceElements release];
 	
 	[super dealloc];
 }
@@ -224,10 +219,6 @@ enum XMPPRosterFlags
 	[response addAttributeWithName:@"type" stringValue:@"subscribed"];
 	
 	[xmppStream sendElement:response];
-	
-	// Add user to our roster
-	
-	[self addBuddy:jid withNickname:nil];
 }
 
 - (void)rejectBuddyRequest:(XMPPJID *)jid
@@ -296,11 +287,6 @@ enum XMPPRosterFlags
 }
 
 
-- (void)didReceivePresence:(XMPPPresence *)presence {
-  [self xmppStream:xmppStream didReceivePresence:presence];
-}
-
-
 - (void)updateRosterWithQuery:(NSXMLElement *)query {
   NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
   
@@ -319,15 +305,6 @@ enum XMPPRosterFlags
   
   [self setHasRoster:YES];
   
-  // Which means we can process any premature presence elements we received
-  for (XMPPPresence *presence in self.earlyPresenceElements)
-  {
-    // needs to happen on the main thread or context will get messed up
-    [self performSelectorOnMainThread:@selector(didReceivePresence:)
-                           withObject:presence
-                        waitUntilDone:NO];
-  }
-  [self.earlyPresenceElements removeAllObjects];
   [pool release];
 }
 
@@ -380,7 +357,7 @@ enum XMPPRosterFlags
 	{
 		if (![self hasRoster])
 		{
-      [self performSelectorInBackground:@selector(updateRosterWithQuery:) withObject:query];
+      [self updateRosterWithQuery:query];
 		} else {
             NSArray *items = [query elementsForName:@"item"];
             for (NSXMLElement *item in items)
@@ -411,34 +388,7 @@ enum XMPPRosterFlags
     if (sender != xmppStream) {
         return;
     }
-	if (![self hasRoster])
-	{
-		// We received a presence notification,
-		// but we don't have a roster to apply it to yet.
-		// 
-		// This is possible if we send our presence before we've received our roster.
-		// It's even possible if we send our presence after we've requested our roster.
-		// There is no guarantee the server will process our requests serially,
-		// and the server may start sending presence elements before it sends our roster.
-		// 
-		// However, if we've requested the roster,
-		// then it shouldn't be too long before we receive it.
-		// So we should be able to simply queue the presence elements for later processing.
-		
-		if ([self requestedRoster])
-		{
-			// We store the presence element until we get our roster.
-			[self.earlyPresenceElements addObject:presence];
-		}
-		else
-		{
-			// The user has not requested the roster.
-			// This is a rogue presence element, or the user is simply not using our roster management.
-		}
-		
-		return;
-	}
-	
+  
 	if ([[presence type] isEqualToString:@"subscribe"])
 	{
 		id <XMPPUser> user = [xmppRosterStorage userForJID:[presence from] xmppStream:sender];
@@ -487,8 +437,6 @@ enum XMPPRosterFlags
 		// So there's no need to refetch the roster.
 		
 		[xmppRosterStorage clearAllResourcesForXMPPStream:sender];
-		
-		[self.earlyPresenceElements removeAllObjects];
 	}
 }
 
@@ -503,8 +451,6 @@ enum XMPPRosterFlags
 	
 	[self setRequestedRoster:NO];
 	[self setHasRoster:NO];
-	
-	[self.earlyPresenceElements removeAllObjects];
 }
 
 @end

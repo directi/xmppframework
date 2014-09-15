@@ -26,9 +26,12 @@
 - (BOOL)isMessageWithBody;
 
 - (BOOL)hasReceiptRequest;
-- (BOOL)hasReceiptResponse;
-- (NSString *)extractReceiptResponseID;
-- (XMPPMessage *)generateReceiptResponse;
+- (BOOL)hasReceivedReceiptResponse;
+- (BOOL)hasReadReceiptResponse;
+- (NSString *)extractReceivedReceiptResponseID;
+- (NSString *)extractReadReceiptResponseID;
+- (XMPPMessage *)generateReadReceiptResponse;
+- (XMPPMessage *)generateReceivedReceiptResponse;
 
 - (NSError *)errorMessage;
 

@@ -15,6 +15,7 @@
 #import "DDLog.h"
 #import "NSDataAdditions.h"
 #import "XMPPDateTimeProfiles.h"
+#import "XMPPStream.h"
 
 
 NSString *const kXMPPNSvCardTemp = @"vcard-temp";
@@ -65,8 +66,9 @@ NSString *const kXMPPvCardTempElement = @"vCard";
 
 
 + (XMPPIQ *)iqvCardRequestForJID:(XMPPJID *)jid {
-  XMPPIQ *iq = [XMPPIQ iqWithType:@"get" to:[jid bareJID]];
+  XMPPIQ *iq = [XMPPIQ iqWithType:@"get" to:[jid bareJID] elementID:[XMPPStream generateUUID]];
   NSXMLElement *vCardElem = [NSXMLElement elementWithName:kXMPPvCardTempElement xmlns:kXMPPNSvCardTemp];
+  [vCardElem addAttributeWithName:@"x-only-base64encodedimage-required" stringValue:@"true"];
   
   [iq addChild:vCardElem];
   return iq;
